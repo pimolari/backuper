@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace - Backuper</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Premium Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Floating Background Shapes -->
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>backuper</span>
+            </div>
+
+            <div class="tree-title">
+                <span>Folders Tree</span>
+                <i class="fa-solid fa-folder-plus" id="sidebar-new-folder-btn" title="Create New Folder"></i>
+            </div>
+
+            <!-- Scrollable Recursive Folder Tree -->
+            <div class="folder-tree" id="folder-tree">
+                <!-- Javascript will populate folder structure here -->
+            </div>
+
+            <button id="logout-btn" class="btn-secondary" style="width: 100%; justify-content: center; margin-top: auto;">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Log Out</span>
+            </button>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- App Header -->
+            <header class="app-header">
+                <div class="search-box">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search files...">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+
+                <div class="header-actions">
+                    <div class="bucket-badge" id="header-bucket-badge">
+                        <i class="fa-solid fa-bucket"></i>
+                        <span id="active-bucket-name">loading...</span>
+                    </div>
+
+                    <div class="user-profile-btn" id="open-profile-btn">
+                        <div class="avatar" id="user-avatar">U</div>
+                        <span id="user-display-name">Loading...</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Workspace Section -->
+            <section class="workspace">
+                <div class="workspace-controls">
+                    <!-- Path Breadcrumbs -->
+                    <div class="breadcrumbs" id="breadcrumbs">
+                        <span class="breadcrumb-item active">Root</span>
+                    </div>
+
+                    <!-- View Mode Controls -->
+                    <div class="view-controls">
+                        <button id="sync-cache-btn" class="btn-secondary" title="Sync Cache from GCS">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>Sync Cache</span>
+                        </button>
+                        <div class="view-toggle">
+                            <button id="view-list-btn" class="toggle-btn active" title="List View">
+                                <i class="fa-solid fa-list"></i>
+                            </button>
+                            <button id="view-grid-btn" class="toggle-btn" title="Preview Cards">
+                                <i class="fa-solid fa-grid-2"></i>
+                                <i class="fa-solid fa-table-cells-large"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drag and Drop Upload Zone -->
+                <div class="upload-dropzone glass-panel" id="upload-zone">
+                    <input type="file" id="file-input" style="display: none;" multiple>
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <h3>Drag & Drop Files Here</h3>
+                    <p>Or click to browse files from your computer</p>
+                </div>
+
+                <!-- Workspace Contents Container -->
+                <div class="contents-container" id="contents-container">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div class="modal-overlay" id="profile-modal">
+        <div class="modal-card glass-panel">
+            <i class="fa-solid fa-xmark modal-close" id="profile-modal-close"></i>
+            <h2 class="modal-title">
+                <i class="fa-solid fa-circle-user"></i>
+                <span>User Profile & GCS Workspace</span>
+            </h2>
+
+            <form id="profile-form">
+                <div class="form-group">
+                    <label for="profile-name">Full Name</label>
+                    <div class="input-container">
+                        <input type="text" id="profile-name" class="form-input" required>
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="profile-email">Email Address</label>
+                    <div class="input-container">
+                        <input type="email" id="profile-email" class="form-input" required>
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="margin-bottom: 24px;">
+                    <span>Save Profile Changes</span>
+                    <i class="fa-solid fa-floppy-disk"></i>
+                </button>
+            </form>
+
+            <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 24px 0;">
+
+            <!-- GCS Buckets Management -->
+            <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-bucket" style="color: var(--secondary);"></i>
+                <span>Google Cloud Storage Buckets</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                Select an active bucket to change your workspace. Data on the active bucket is secure and fully cached on Datastore.
+            </p>
+
+            <div class="buckets-list">
+                <table class="buckets-table">
+                    <thead>
+                        <tr>
+                            <th>Bucket Name</th>
+                            <th>Location / Region</th>
+                            <th>Storage Class</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="buckets-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Create New Bucket Area -->
+            <div style="margin-top: 32px; padding: 20px; border-radius: 12px; background: rgba(0, 0, 0, 0.15); border: 1px solid var(--glass-border);">
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">Add New GCS Bucket</h4>
+                <form id="create-bucket-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="new-bucket-region" style="font-size: 0.75rem;">GCS Region</label>
+                        <select id="new-bucket-region" class="form-select" style="padding: 10px;">
+                            <option value="europe-west1">europe-west1 (Europe)</option>
+                            <option value="us-central1">us-central1 (Iowa)</option>
+                            <option value="us-east1">us-east1 (S. Carolina)</option>
+                            <option value="asia-east1">asia-east1 (Taiwan)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="new-bucket-class" style="font-size: 0.75rem;">Storage Class</label>
+                        <select id="new-bucket-class" class="form-select" style="padding: 10px;">
+                            <option value="STANDARD">STANDARD</option>
+                            <option value="NEARLINE">NEARLINE</option>
+                            <option value="COLDLINE">COLDLINE</option>
+                            <option value="ARCHIVE">ARCHIVE</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="padding: 10px 16px; width: auto; font-size: 0.9rem;">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Create</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Folder Modal -->
+    <div class="modal-overlay" id="folder-modal">
+        <div class="modal-card glass-panel" style="max-width: 400px;">
+            <i class="fa-solid fa-xmark modal-close" id="folder-modal-close"></i>
+            <h2 class="modal-title">
+                <i class="fa-solid fa-folder-plus"></i>
+                <span>Create New Folder</span>
+            </h2>
+
+            <form id="folder-form">
+                <div class="form-group">
+                    <label for="new-folder-name">Folder Name</label>
+                    <div class="input-container">
+                        <input type="text" id="new-folder-name" class="form-input" placeholder="e.g. Holidays 2026" required>
+                        <i class="fa-solid fa-folder"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span>Create Folder</span>
+                    <i class="fa-solid fa-check"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alert Toasts Container -->
+    <div id="alert-container" class="alert-container"></div>
+
+    <!-- Script Imports -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+google-cloud-storage
+google-cloud-datastore
+pyjwt
+passlib[bcrypt]
+python-multipart
+pydantic
+bcrypt
+email-validator

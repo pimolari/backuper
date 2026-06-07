@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Backuper</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Premium Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Floating Background Shapes -->
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
+
+    <div class="auth-container">
+        <!-- Login Card -->
+        <div id="login-card" class="auth-card glass-panel">
+            <div class="auth-logo">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>backuper</span>
+            </div>
+            <h2 class="auth-title">Welcome Back</h2>
+            <p class="auth-subtitle">Access your secure GCS cloud workspace</p>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <div class="input-container">
+                        <input type="email" id="login-email" class="form-input" placeholder="you@example.com" required>
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-container">
+                        <input type="password" id="login-password" class="form-input" placeholder="••••••••" required>
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span>Sign In</span>
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                </button>
+            </form>
+
+            <div class="auth-toggle">
+                Don't have an account? <a href="#" id="show-signup">Create one</a>
+            </div>
+        </div>
+
+        <!-- Register Card (Hidden by Default) -->
+        <div id="signup-card" class="auth-card glass-panel" style="display: none;">
+            <div class="auth-logo">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>backuper</span>
+            </div>
+            <h2 class="auth-title">Create Account</h2>
+            <p class="auth-subtitle">Get started with your custom GCS storage</p>
+
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <div class="input-container">
+                        <input type="text" id="signup-name" class="form-input" placeholder="Alex Mercer" required>
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-email">Email Address</label>
+                    <div class="input-container">
+                        <input type="email" id="signup-email" class="form-input" placeholder="you@example.com" required>
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <div class="input-container">
+                        <input type="password" id="signup-password" class="form-input" placeholder="Min. 6 characters" required minlength="6">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-region">GCS Bucket Region</label>
+                    <select id="signup-region" class="form-select">
+                        <option value="europe-west1">europe-west1 (Default)</option>
+                        <option value="us-central1">us-central1 (Iowa)</option>
+                        <option value="us-east1">us-east1 (South Carolina)</option>
+                        <option value="asia-east1">asia-east1 (Taiwan)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-class">Storage Class</label>
+                    <select id="signup-class" class="form-select">
+                        <option value="STANDARD">STANDARD (Frequently accessed)</option>
+                        <option value="NEARLINE">NEARLINE (Monthly backups)</option>
+                        <option value="COLDLINE">COLDLINE (Quarterly backups)</option>
+                        <option value="ARCHIVE">ARCHIVE (Long-term preservation)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span>Create Account</span>
+                    <i class="fa-solid fa-user-plus"></i>
+                </button>
+            </form>
+
+            <div class="auth-toggle">
+                Already have an account? <a href="#" id="show-login">Sign in</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Toasts Container -->
+    <div id="alert-container" class="alert-container"></div>
+
+    <!-- Script Imports -->
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "User:alice@example.com": {
+    "name": "Alice Developer",
+    "email": "alice@example.com",
+    "hashed_password": "$2b$12$a2.htAGbE2MVpPXHosG1I.UQcYv3lGpMBJuWN9bcwb4KkVDJ96iFS",
+    "active_bucket": "backuper-c160f8cc-europe-west1",
+    "buckets": [
+      {
+        "name": "backuper-c160f8cc-europe-west1",
+        "region": "europe-west1",
+        "storage_class": "NEARLINE"
+      }
+    ]
+  },
+  "User:bob@example.com": {
+    "name": "Bob Security Auditor",
+    "email": "bob@example.com",
+    "hashed_password": "$2b$12$ropYo1TH8cLrUxoD7wFBPuhKUKnyryY7KwkaTakk.T3g18uPXWufi",
+    "active_bucket": "backuper-4b9bb806-us-central1",
+    "buckets": [
+      {
+        "name": "backuper-4b9bb806-us-central1",
+        "region": "us-central1",
+        "storage_class": "STANDARD"
+      }
+    ]
+  }
+}

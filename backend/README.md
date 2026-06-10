@@ -12,6 +12,29 @@ Este es el backend de la aplicación **Backuper**, desarrollado con **FastAPI**.
 
 ---
 
+## System Flows (Flujos del Sistema)
+
+### 1. Authentication Flow (Flujo de Autenticación)
+- **Registro (`/api/auth/register`)**: El sistema recibe el correo y contraseña. Primero valida los datos, y luego invoca al cliente GCS para crear un nuevo bucket nativo para el usuario. Tras crearse el bucket con éxito, persiste la entidad del usuario en Datastore con la contraseña cifrada y le asigna este bucket como su "bucket activo" inicial.
+- **Login (`/api/auth/login`)**: El cliente envía sus credenciales, que se validan contra Datastore. Si coinciden, el backend firma y emite un token de acceso JWT con el correo del usuario como sujeto (`sub`), que se utilizará en los encabezados `Authorization: Bearer <token>` de futuras solicitudes.
+
+### 2. Standard and Chunked File Upload Flow (Flujos de Subida de Archivos)
+- **Subida Estándar (`/api/files/upload`)**: Recibe un archivo monolítico en un payload de formulario `multipart/form-data`, y lo transmite directamente a Google Cloud Storage de forma sincrónica. Finalmente, registra los metadatos en la entidad `FileCache` de Datastore.
+- **Subida en Bloques (Chunked Upload)**: Diseñado para archivos grandes que superan los límites de tamaño del cuerpo de solicitud de Cloud Run (32MB).
+  - **Fase 1 (`/api/files/upload/initiate`)**: Registra la intención de subir un archivo. El servidor GCS inicia una sesión resumible y el backend crea una entidad `UploadSession` en Datastore para mapearla. Si es una imagen, se procesa un thumbnail Base64.
+  - **Fase 2 (`/api/files/upload/chunk`)**: El frontend envía bloques secuenciales del archivo usando la ID de sesión. El backend retransmite estos bloques (vía requests) al endpoint resumible de GCS.
+  - **Fase 3 (`/api/files/upload/complete`)**: Se invoca cuando todos los bloques han sido transmitidos. El backend purga la sesión y asienta la entidad definitiva en `FileCache`.
+
+### 3. Listing and Hierarchy Flow (Flujo de Listado y Caché Virtual)
+- GCS es inherentemente un almacenamiento de objetos planos, sin carpetas reales. Para proveer una experiencia rápida y no bloquearnos listando repetitivamente objetos GCS remotos, el backend mantiene un caché de Datastore (`FileCache`) de todos los archivos y "directorios virtuales".
+- **`browse_files`**: Al listar archivos en una ruta específica (e.g. `Documents/`), el backend consulta en Datastore todos los archivos bajo ese bucket. Mediante la comparación y el recorte de cadenas, infiere instantáneamente y sin costo remoto qué objetos existen directamente en esa subcarpeta y si hay carpetas lógicas implícitas dentro. Este método soporta además paginación (`limit`, `page`).
+
+### 4. Deletion Flow (Flujo de Eliminación)
+- **Archivos (`/api/files/{id}`)**: El backend primero constata que el usuario en sesión coincida con el dueño anotado en Datastore. Luego, elimina físicamente el blob de GCS e invalida el registro cacheado en Datastore.
+- **Carpetas (`/api/files/folder/{path}`)**: GCS permite usar el cliente para buscar y eliminar recursivamente todos los objetos que tengan la ruta como prefijo. A su vez, el backend busca en Datastore toda entidad que comience con la misma ruta y destruye los registros en ráfaga, limpiando por completo el árbol asociado.
+
+---
+
 ## Configuración del Entorno Local
 
 El backend puede operar en modo **emulación local** (predeterminado) o utilizando recursos reales de GCP mediante la variable de entorno `USE_REAL_GCP`.
@@ -86,3 +109,5 @@ Las pruebas cubren:
 6. Aislamiento de seguridad multi-inquilino (Bob no puede acceder a los datos de Alice).
 7. Eliminación de archivos individuales.
 8. Eliminación recursiva de carpetas y limpieza del árbol de directorios.
+9. Subidas en bloques completas (Chunked Uploads).
+10. Verificación de paginación y deduplicación.

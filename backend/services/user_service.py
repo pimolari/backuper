@@ -1,0 +1,155 @@
+"""
+User service — business logic for registration, login, and profile management.
+
+No HTTP / FastAPI concepts live here; only pure business rules.
+"""
+
+from datetime import timedelta
+from typing import Optional, Dict, Any
+
+from backend import config
+from backend.auth.passwords import hash_password, verify_password
+from backend.auth.tokens import create_access_token
+from backend.clients.datastore_client import DatastoreClient
+from backend.clients.gcs_client import GCSClient
+from backend.common.exceptions import ConflictError, InternalError
+from backend.common.logging import biz_logger, tech_logger
+from backend.common.utils.validators import validate_region, validate_storage_class
+from backend.models.user import UserResponse
+from backend.services._mappers import build_user_response
+
+# Module-level singletons (cheap; the heavy SDK client is created once)
+_db = DatastoreClient()
+_gcs = GCSClient()
+
+
+# ─── queries ────────────────────────────────────────────────────────
+
+def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Look up a user by email.  Returns *None* if not found."""
+    query = _db.query(kind="User")
+    query.add_filter("email", "=", email.lower().strip())
+    results = list(query.fetch())
+    if results:
+        user = dict(results[0])
+        user["id"] = results[0].key.name or str(results[0].key.id)
+        return user
+    return None
+
+
+def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """Look up a user by Datastore key.  Returns *None* if not found."""
+    key = _db.key("User", user_id)
+    entity = _db.get(key)
+    if entity:
+        user = dict(entity)
+        user["id"] = user_id
+        return user
+    return None
+
+
+# ─── commands ───────────────────────────────────────────────────────
+
+def register_user(
+    name: str,
+    email: str,
+    password: str,
+    region: str,
+    storage_class: str,
+) -> UserResponse:
+    """
+    Full registration flow: validate → create GCS bucket → persist user.
+    """
+    validate_region(region)
+    validate_storage_class(storage_class)
+
+    if get_user_by_email(email):
+        raise ConflictError("A user with this email already exists.")
+
+    try:
+        bucket_name = _gcs.create_user_bucket(email, region, storage_class)
+    except Exception as exc:
+        tech_logger.error("Bucket creation failed for %s: %s", email, exc)
+        raise InternalError(
+            f"Failed to create Google Cloud Storage bucket: {exc}"
+        )
+
+    hashed_pw = hash_password(password)
+    user_id = email.lower().strip()
+    key = _db.key("User", user_id)
+    user_data = {
+        "name": name,
+        "email": email.lower().strip(),
+        "hashed_password": hashed_pw,
+        "active_bucket": bucket_name,
+        "buckets": [
+            {
+                "name": bucket_name,
+                "region": region,
+                "storage_class": storage_class,
+            }
+        ],
+    }
+    entity = _db.create_entity(key, user_data)
+    _db.put(entity)
+    user_data["id"] = user_id
+
+    biz_logger.info("User registered: %s", email)
+    return build_user_response(user_data)
+
+
+def login_user(email: str, password: str) -> dict:
+    """
+    Authenticate and return an access-token payload.
+    """
+    from backend.common.exceptions import AppError
+
+    user = get_user_by_email(email)
+    if not user or not verify_password(password, user["hashed_password"]):
+        raise AppError(
+            "Incorrect email or password.",
+            status_code=401,
+        )
+
+    access_token = create_access_token(
+        data={"sub": user["email"]},
+        expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    biz_logger.info("User logged in: %s", email)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "name": user["name"],
+            "email": user["email"],
+            "active_bucket": user["active_bucket"],
+        },
+    }
+
+
+def get_profile(current_user: Dict[str, Any]) -> UserResponse:
+    """Return the authenticated user's profile."""
+    return build_user_response(current_user)
+
+
+def update_profile(
+    current_user: Dict[str, Any],
+    name: str,
+    email: str,
+) -> UserResponse:
+    """Update name / email.  Checks for email uniqueness."""
+    if email.lower() != current_user["email"].lower():
+        if get_user_by_email(email):
+            raise ConflictError("A user with this email already exists.")
+
+    key = _db.key("User", current_user["id"])
+    entity = _db.get(key)
+    if entity:
+        entity["name"] = name
+        entity["email"] = email.lower().strip()
+        _db.put(entity)
+
+    updated_user = get_user_by_id(current_user["id"])
+    biz_logger.info("Profile updated: %s", email)
+    return build_user_response(updated_user)

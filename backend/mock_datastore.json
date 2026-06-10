@@ -2,7 +2,7 @@
   "User:alice@example.com": {
     "name": "Alice Developer",
     "email": "alice@example.com",
-    "hashed_password": "$2b$12$a2.htAGbE2MVpPXHosG1I.UQcYv3lGpMBJuWN9bcwb4KkVDJ96iFS",
+    "hashed_password": "$2b$12$y9q3PZNkvLDvkNboRPrCvu.s5/.lFeeGCpPETjWMCf4UVn010rvkO",
     "active_bucket": "backuper-c160f8cc-europe-west1",
     "buckets": [
       {
@@ -15,7 +15,7 @@
   "User:bob@example.com": {
     "name": "Bob Security Auditor",
     "email": "bob@example.com",
-    "hashed_password": "$2b$12$ropYo1TH8cLrUxoD7wFBPuhKUKnyryY7KwkaTakk.T3g18uPXWufi",
+    "hashed_password": "$2b$12$JtPYZ7/35QaHmazPvcYO/O2Iy85bb7oWtsv0wCBIOTh5Id6JScRQu",
     "active_bucket": "backuper-4b9bb806-us-central1",
     "buckets": [
       {
@@ -24,5 +24,66 @@
         "storage_class": "STANDARD"
       }
     ]
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:DedupeFolder": {
+    "user_id": "alice@example.com",
+    "name": "DedupeFolder",
+    "path": "DedupeFolder",
+    "size": 0,
+    "upload_date": "2026-06-10T22:37:22.055319",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": true
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:DedupeFolder/test.txt": {
+    "user_id": "alice@example.com",
+    "name": "test.txt",
+    "path": "DedupeFolder/test.txt",
+    "size": 6,
+    "upload_date": "2026-06-10T22:37:22.056674",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": false
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:pfile_0.txt": {
+    "user_id": "alice@example.com",
+    "name": "pfile_0.txt",
+    "path": "pfile_0.txt",
+    "size": 1,
+    "upload_date": "2026-06-10T22:37:22.059209",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": false
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:pfile_1.txt": {
+    "user_id": "alice@example.com",
+    "name": "pfile_1.txt",
+    "path": "pfile_1.txt",
+    "size": 1,
+    "upload_date": "2026-06-10T22:37:22.060592",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": false
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:pfile_2.txt": {
+    "user_id": "alice@example.com",
+    "name": "pfile_2.txt",
+    "path": "pfile_2.txt",
+    "size": 1,
+    "upload_date": "2026-06-10T22:37:22.061972",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": false
+  },
+  "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:image.png": {
+    "user_id": "alice@example.com",
+    "name": "image.png",
+    "path": "image.png",
+    "size": 12,
+    "upload_date": "2026-06-10T22:37:22.067784",
+    "storage_location": "backuper-c160f8cc-europe-west1",
+    "storage_class": "NEARLINE",
+    "is_dir": false,
+    "thumbnail_base64": "data:image/jpeg;base64,/9j/4AAQSk..."
   }
 }

@@ -2,6 +2,7 @@ import os
 import requests
 from flask import Flask, render_template, request, Response, stream_with_context
 
+
 app = Flask(__name__)
 
 # Allow uploads up to 5 GB through the Flask proxy
@@ -30,65 +31,64 @@ def api_proxy(path):
     url = f"{BACKEND_URL}/api/{path}"
     print(f"[proxy] Forwarding {request.method} -> {url}")
 
-    # Forward headers (skip hop-by-hop and content-type for multipart)
+    # Forward headers (skip hop-by-hop).
+    # content-length is intentionally excluded here: the requests library
+    # sets it automatically from the body object's __len__. Forwarding it
+    # manually alongside a streamed body would produce a duplicate
+    # Content-Length / Transfer-Encoding: chunked conflict that causes
+    # HTTP 400 errors on the backend (uvicorn enforces RFC 7230).
     headers = {}
     for key, value in request.headers.items():
-        if key.lower() not in ['host', 'content-length', 'content-type', 'transfer-encoding']:
+        if key.lower() not in ['host', 'transfer-encoding', 'content-length']:
             headers[key] = value
-
-    # Include content-type if not multipart (requests library handles multipart boundary)
-    if request.content_type and "multipart/form-data" not in request.content_type:
-        headers["Content-Type"] = request.content_type
 
     # Forward query params
     params = request.args
 
+    # Wrap the raw WSGI input stream with __len__ so the requests library
+    # can report Content-Length instead of falling back to chunked encoding.
+    # (The original StreamWrapper used a .len *attribute* which requests
+    # ignores — it calls len() which requires __len__.)
+    class SizedStream:
+        """File-like wrapper that exposes __len__ for the requests library."""
+        def __init__(self, stream, length: int):
+            self._stream = stream
+            self._length = length
+
+        def __len__(self) -> int:
+            return self._length
+
+        def read(self, size: int = -1) -> bytes:
+            return self._stream.read(size)
+
     try:
-        if request.files:
-            # -----------------------------------------------------------
-            # Stream file uploads through the proxy without buffering the
-            # entire file in memory.  We use requests-toolbelt's
-            # MultipartEncoder which reads the file in 8 KB chunks.
-            # -----------------------------------------------------------
-            fields = {}
+        content_length = request.headers.get('Content-Length')
 
-            # Carry form fields alongside files
-            for field_name, field_value in request.form.items():
-                fields[field_name] = field_value
-
-            # Wrap each uploaded file's stream (SpooledTemporaryFile) —
-            # the stream is already disk-backed for large files thanks to
-            # Werkzeug, so we just pass it through without .read().
-            for name, file_storage in request.files.items():
-                fields[name] = (
-                    file_storage.filename,
-                    file_storage.stream,
-                    file_storage.content_type or "application/octet-stream",
-                )
-
-            encoder = MultipartEncoder(fields=fields)
-            headers["Content-Type"] = encoder.content_type
-
-            response = requests.request(
-                method=request.method,
-                url=url,
-                headers=headers,
-                params=params,
-                data=encoder,
-                timeout=UPLOAD_TIMEOUT,
-                stream=True,
-            )
+        # -----------------------------------------------------------
+        # Stream the raw request body directly to the backend without
+        # triggering Werkzeug's form parser (avoids buffering large
+        # files). SizedStream lets requests set Content-Length so the
+        # backend receives a well-formed request.
+        # -----------------------------------------------------------
+        if content_length and int(content_length) > 0:
+            data = SizedStream(request.stream, int(content_length))
         else:
-            # Standard request (JSON, raw body, or empty)
-            response = requests.request(
-                method=request.method,
-                url=url,
-                headers=headers,
-                params=params,
-                data=request.get_data(),
-                timeout=DEFAULT_TIMEOUT,
-                stream=True,
-            )
+            data = request.get_data()
+
+        # Apply a long timeout only for upload routes; use a shorter
+        # default for fast reads like browse/profile/tree.
+        is_upload = request.method == "POST" and "upload" in path
+        timeout = UPLOAD_TIMEOUT if is_upload else DEFAULT_TIMEOUT
+
+        response = requests.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            params=params,
+            data=data,
+            timeout=timeout,
+            stream=True,
+        )
 
         # Exclude hop-by-hop headers that conflict with Flask's response
         excluded_headers = {

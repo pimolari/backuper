@@ -9,6 +9,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. State Management
     let currentPath = "";
     let currentViewMode = "list"; // "list" or "grid"
+    let currentPage = 1;
+    let pageSize = 200;
+    let totalCount = 0;
     let userData = null;
     let foldersList = [];
     let filesList = [];
@@ -31,6 +34,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const viewListBtn = document.getElementById("view-list-btn");
     const viewGridBtn = document.getElementById("view-grid-btn");
     const contentsContainer = document.getElementById("contents-container");
+    const appSidebar = document.getElementById("app-sidebar");
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+    const sidebarBucketSelect = document.getElementById("sidebar-bucket-select");
+    const pageSizeSelect = document.getElementById("page-size-select");
+    const prevPageBtn = document.getElementById("prev-page-btn");
+    const nextPageBtn = document.getElementById("next-page-btn");
+    const paginationInfo = document.getElementById("pagination-info");
 
     // Upload Zone
     const uploadZone = document.getElementById("upload-zone");
@@ -128,6 +138,16 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Populate Buckets Table in profile modal
             renderBucketsTable();
+            
+            // Populate Sidebar Bucket Selector
+            sidebarBucketSelect.innerHTML = "";
+            userData.buckets.forEach(bucket => {
+                const opt = document.createElement("option");
+                opt.value = bucket.name;
+                opt.textContent = bucket.name;
+                if (bucket.is_active) opt.selected = true;
+                sidebarBucketSelect.appendChild(opt);
+            });
         }
     }
 
@@ -158,6 +178,45 @@ document.addEventListener("DOMContentLoaded", () => {
             bucketsTableBody.appendChild(tr);
         });
 
+
+        // Sidebar Bucket switch
+        sidebarBucketSelect.addEventListener("change", async (e) => {
+            const name = e.target.value;
+            const result = await apiRequest(`/api/profile/active-bucket?bucket_name=${name}`, { method: "POST" });
+            if (result) {
+                showToast("Switched workspace bucket!", "success");
+                currentPath = ""; currentPage = 1;
+                await init();
+            }
+        });
+
+        // Mobile menu toggle
+        mobileMenuBtn.addEventListener("click", () => {
+            appSidebar.classList.toggle("sidebar-open");
+        });
+
+        // Pagination handlers
+        pageSizeSelect.addEventListener("change", (e) => {
+            pageSize = parseInt(e.target.value, 10);
+            currentPage = 1;
+            refreshWorkspace();
+        });
+
+        prevPageBtn.addEventListener("click", () => {
+            if (currentPage > 1) {
+                currentPage--;
+                refreshWorkspace();
+            }
+        });
+
+        nextPageBtn.addEventListener("click", () => {
+            const maxPage = Math.ceil(totalCount / pageSize);
+            if (currentPage < maxPage) {
+                currentPage++;
+                refreshWorkspace();
+            }
+        });
+
         // Setup Switch Bucket action listeners
         document.querySelectorAll(".switch-bucket-btn").forEach(btn => {
             btn.addEventListener("click", async (e) => {
@@ -185,10 +244,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Fetch direct folders & files inside currentPath
-        const browseData = await apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}`);
+        const browseData = await apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}&limit=${pageSize}&page=${currentPage}`);
         if (browseData) {
             foldersList = browseData.folders;
             filesList = browseData.files;
+            totalCount = browseData.total_count || 0;
+            
+            // Update pagination UI
+            const startIdx = totalCount === 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+            const endIdx = Math.min(currentPage * pageSize, totalCount);
+            paginationInfo.innerText = `Showing ${startIdx}-${endIdx} of ${totalCount}`;
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = endIdx >= totalCount;
             
             renderBreadcrumbs(browseData.breadcrumbs);
             renderContents();
@@ -381,10 +448,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const formattedSize = formatBytes(file.size);
             const formattedDate = new Date(file.upload_date).toLocaleDateString() + " " + new Date(file.upload_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             
+            let fileIconHTML = `<i class="${iconClass}"></i>`;
+            if (file.thumbnail_base64) {
+                fileIconHTML = `<img src="${file.thumbnail_base64}" class="list-thumbnail" alt="thumbnail">`;
+            }
+            
             tr.innerHTML = `
                 <td>
                     <div class="file-name-cell" data-type="file" data-id="${file.id}">
-                        <i class="${iconClass}"></i>
+                        ${fileIconHTML}
                         <span>${file.name}</span>
                     </div>
                 </td>
@@ -442,8 +514,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const iconClass = getFileIcon(file.name);
             const formattedSize = formatBytes(file.size);
             
+            let cardIconHTML = `<div class="card-icon"><i class="${iconClass}"></i></div>`;
+            if (file.thumbnail_base64) {
+                cardIconHTML = `<img src="${file.thumbnail_base64}" class="card-thumbnail" alt="thumbnail">`;
+            }
+            
             card.innerHTML = `
-                <div class="card-icon"><i class="${iconClass}"></i></div>
+                ${cardIconHTML}
                 <div class="card-title" title="${file.name}">${file.name}</div>
                 <div class="card-meta">${formattedSize}</div>
                 <div class="card-actions">
@@ -611,10 +688,12 @@ document.addEventListener("DOMContentLoaded", () => {
         fileInput.click();
     });
 
-    fileInput.addEventListener("change", (e) => {
+    fileInput.addEventListener("change", async (e) => {
         const files = e.target.files;
         if (files.length > 0) {
-            uploadFiles(files);
+            await uploadFiles(files);
+            // Reset so the same file can be selected and re-uploaded
+            fileInput.value = "";
         }
     });
 
@@ -638,31 +717,54 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     async function uploadFiles(files) {
-        for (let i = 0; i < files.length; i++) {
+        const MAX_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB — must match backend limit
+        let uploadedCount = 0;
+        const total = files.length;
+
+        for (let i = 0; i < total; i++) {
             const file = files[i];
+
+            // Client-side size guard — give immediate feedback before any network I/O
+            if (file.size > MAX_BYTES) {
+                showToast(`${file.name} exceeds the 5 GB limit and was skipped.`, "error");
+                continue;
+            }
+
             const fileLabel = `${file.name} (${formatBytes(file.size)})`;
             showToast(`Uploading ${fileLabel}...`, "success");
+            uploadedCount++;
 
             try {
-                await uploadFileWithProgress(file, i + 1, files.length);
+                await uploadFileWithProgress(file, uploadedCount, total);
                 showToast(`Finished uploading ${file.name}!`, "success");
             } catch (err) {
                 showToast(`Failed uploading ${file.name}: ${err.message || err}`, "error");
             }
         }
+
+        // Guarantee progress bar is removed regardless of success/failure
+        const pc = document.getElementById("upload-progress-container");
+        if (pc) {
+            pc.style.transition = "opacity 0.4s";
+            pc.style.opacity = "0";
+            setTimeout(() => pc.remove(), 400);
+        }
+
         refreshWorkspace();
     }
 
     /**
-     * Upload a single file via XMLHttpRequest so we can listen to
-     * progress events and display a real progress bar.
+     * Upload a single file using the two-step direct-to-GCS signed URL flow:
+     *
+     *  1. POST /api/files/upload-url  → backend issues a signed GCS PUT URL
+     *  2. PUT  <signed-url>           → browser uploads directly to GCS
+     *                                   (bypasses Cloud Run's 32 MB body limit)
+     *  3. POST /api/files/register    → backend caches the file metadata
+     *
+     * XHR is used for step 2 so progress events work on the actual upload.
      */
     function uploadFileWithProgress(file, index, total) {
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("path", currentPath);
+        return new Promise(async (resolve, reject) => {
 
             // --- Create / reuse the progress bar UI ---
             let progressContainer = document.getElementById("upload-progress-container");
@@ -682,69 +784,190 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.body.appendChild(progressContainer);
             }
 
-            progressContainer.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <span style="font-size:0.82rem;font-weight:600;opacity:0.9;">
-                        <i class="fa-solid fa-cloud-arrow-up" style="margin-right:6px;color:var(--secondary,#7c5cfc);"></i>
-                        Uploading ${index}/${total}
-                    </span>
-                    <span id="upload-pct" style="font-size:0.82rem;font-weight:700;color:var(--secondary,#7c5cfc);">0%</span>
-                </div>
-                <div style="font-size:0.75rem;margin-bottom:8px;opacity:0.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-                     title="${file.name}">
-                    ${file.name} — ${formatBytes(file.size)}
-                </div>
-                <div style="width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
-                    <div id="upload-bar" style="width:0%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--secondary,#7c5cfc),var(--accent,#00d4ff));transition:width 0.15s ease;"></div>
-                </div>
-            `;
+            const setProgress = (pct, label) => {
+                progressContainer.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-size:0.82rem;font-weight:600;opacity:0.9;">
+                            <i class="fa-solid fa-cloud-arrow-up" style="margin-right:6px;color:var(--secondary,#7c5cfc);"></i>
+                            ${label} ${index}/${total}
+                        </span>
+                        <span id="upload-pct" style="font-size:0.82rem;font-weight:700;color:var(--secondary,#7c5cfc);">${pct}%</span>
+                    </div>
+                    <div style="font-size:0.75rem;margin-bottom:8px;opacity:0.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                         title="${file.name}">
+                        ${file.name} — ${formatBytes(file.size)}
+                    </div>
+                    <div style="width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
+                        <div id="upload-bar" style="width:${pct}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--secondary,#7c5cfc),var(--accent,#00d4ff));transition:width 0.15s ease;"></div>
+                    </div>
+                `;
+            };
 
-            const barEl = progressContainer.querySelector("#upload-bar");
-            const pctEl = progressContainer.querySelector("#upload-pct");
+            setProgress(0, "Initiating");
 
-            xhr.upload.addEventListener("progress", (e) => {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    barEl.style.width = pct + "%";
-                    pctEl.textContent = pct + "%";
+            // ── Generate Thumbnail ──────────────────────────────────────
+            let thumbnailBase64 = null;
+            if (file.type && file.type.startsWith("image/")) {
+                try {
+                    thumbnailBase64 = await generateThumbnail(file);
+                } catch(e) { console.warn("Thumbnail generation failed", e); }
+            }
+
+            // ── Step 1: Initiate Upload ─────────────────────────────────
+            let uploadId;
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
+            try {
+                const fd1 = new FormData();
+                fd1.append("path", currentPath);
+                fd1.append("filename", file.name);
+                fd1.append("file_size", String(file.size));
+                fd1.append("content_type", file.type || "application/octet-stream");
+                if (thumbnailBase64) {
+                    fd1.append("thumbnail_base64", thumbnailBase64);
                 }
-            });
 
-            xhr.addEventListener("load", () => {
-                barEl.style.width = "100%";
-                pctEl.textContent = "100%";
+                const res = await fetch("/api/files/upload/initiate", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}` },
+                    body: fd1,
+                });
 
-                // Auto-hide progress bar after all files are done
-                if (index === total) {
-                    setTimeout(() => {
-                        progressContainer.style.opacity = "0";
-                        progressContainer.style.transition = "opacity 0.4s";
-                        setTimeout(() => { progressContainer.remove(); }, 400);
-                    }, 1200);
+                if (res.status === 401) {
+                    localStorage.removeItem("backuper_token");
+                    window.location.href = "/login";
+                    return reject(new Error("Session expired"));
                 }
-
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(JSON.parse(xhr.responseText));
-                } else {
-                    let detail = xhr.statusText;
-                    try { detail = JSON.parse(xhr.responseText).detail || detail; } catch (_) {}
-                    reject(new Error(`Server responded ${xhr.status}: ${detail}`));
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return reject(new Error(err.detail || `Server error ${res.status}`));
                 }
-            });
+                const initData = await res.json();
+                uploadId = initData.upload_id;
+            } catch (err) {
+                return reject(new Error(`Failed to initiate upload: ${err.message}`));
+            }
 
-            xhr.addEventListener("error", () => {
-                progressContainer.remove();
-                reject(new Error("Network error during upload"));
-            });
+            // Helper to upload a single chunk using XHR
+            const uploadChunkWithXHR = (chunk, startOffset, chunkIndex, totalChunks) => {
+                return new Promise((resolveChunk, rejectChunk) => {
+                    const xhr = new XMLHttpRequest();
 
-            xhr.addEventListener("abort", () => {
-                progressContainer.remove();
-                reject(new Error("Upload was aborted"));
-            });
+                    xhr.upload.addEventListener("progress", (e) => {
+                        if (e.lengthComputable) {
+                            const chunkProgress = e.loaded;
+                            const totalUploadedBytes = startOffset + chunkProgress;
+                            const pct = Math.min(Math.round((totalUploadedBytes / file.size) * 100), 99);
+                            setProgress(pct, `Uploading chunk ${chunkIndex + 1}/${totalChunks}`);
+                        }
+                    });
 
-            xhr.open("POST", "/api/files/upload");
-            xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-            xhr.send(formData);
+                    xhr.addEventListener("load", () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolveChunk();
+                        } else {
+                            rejectChunk(new Error(`Server error ${xhr.status}`));
+                        }
+                    });
+
+                    xhr.addEventListener("error", () => rejectChunk(new Error("Network error")));
+                    xhr.addEventListener("abort", () => rejectChunk(new Error("Aborted")));
+
+                    const fd = new FormData();
+                    fd.append("upload_id", uploadId);
+                    fd.append("offset", String(startOffset));
+                    fd.append("file", chunk, file.name);
+
+                    xhr.open("POST", "/api/files/upload/chunk");
+                    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+                    xhr.send(fd);
+                });
+            };
+
+            // ── Step 2: Upload Chunks Sequentially ──────────────────────
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE) || 1;
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+
+                let success = false;
+                let attempts = 3;
+                while (attempts > 0 && !success) {
+                    try {
+                        await uploadChunkWithXHR(chunk, start, chunkIndex, totalChunks);
+                        success = true;
+                    } catch (err) {
+                        attempts--;
+                        if (attempts === 0) {
+                            return reject(new Error(`Failed to upload chunk ${chunkIndex + 1}: ${err.message}`));
+                        }
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
+            }
+
+            setProgress(99, "Completing");
+
+            // ── Step 3: Complete Upload ─────────────────────────────────
+            try {
+                const fd3 = new FormData();
+                fd3.append("upload_id", uploadId);
+
+                const res = await fetch("/api/files/upload/complete", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}` },
+                    body: fd3,
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return reject(new Error(err.detail || `Server error ${res.status}`));
+                }
+                const result = await res.json();
+                setProgress(100, "Done");
+                resolve(result);
+            } catch (err) {
+                return reject(new Error(`Failed to complete upload: ${err.message}`));
+            }
+        });
+    }
+
+
+
+    function generateThumbnail(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    const MAX_WIDTH = 120;
+                    const MAX_HEIGHT = 120;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL("image/jpeg", 0.7));
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
     }
 

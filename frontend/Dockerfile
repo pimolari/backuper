@@ -17,4 +17,5 @@ EXPOSE 8080
 #   --workers 2     = handle concurrent requests while one is uploading
 #   --threads 4     = gthread concurrency within each worker
 #   --limit-request-line 0  = no limit on request header line length
-CMD ["sh", "-c", "gunicorn", "--bind", "0.0.0.0:$PORT", "--timeout", "240", "--workers", "2", "--threads", "4", "--limit-request-line", "0", "app:app"]
+#CMD ["sh", "-c", "gunicorn", "--bind", "0.0.0.0:$PORT", "--timeout", "240", "--workers", "2", "--threads", "4", "--limit-request-line", "0", "app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --timeout 240 --workers 2 --threads 4 --limit-request-line 0 app:app"]

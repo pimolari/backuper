@@ -18,10 +18,17 @@
 
     <div class="app-container">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="app-sidebar">
             <div class="sidebar-brand">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
                 <span>backuper</span>
+            </div>
+
+            <!-- Bucket Selector for Sidebar -->
+            <div class="sidebar-bucket-selector">
+                <select id="sidebar-bucket-select" class="form-select" style="width: 100%; margin-bottom: 16px; padding: 8px; font-size: 0.9rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-light);">
+                    <option value="" disabled selected>Loading buckets...</option>
+                </select>
             </div>
 
             <div class="tree-title">
@@ -44,9 +51,15 @@
         <main class="main-content">
             <!-- App Header -->
             <header class="app-header">
-                <div class="search-box">
-                    <input type="text" id="search-input" class="search-input" placeholder="Search files...">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                <div class="search-box" style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                    <!-- Mobile Hamburger Menu -->
+                    <button id="mobile-menu-btn" class="toggle-btn mobile-only" style="display: none;" title="Toggle Sidebar">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div style="position: relative; flex: 1; max-width: 400px;">
+                        <input type="text" id="search-input" class="search-input" placeholder="Search files..." style="width: 100%;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    </div>
                 </div>
 
                 <div class="header-actions">
@@ -100,6 +113,31 @@
                 <!-- Workspace Contents Container -->
                 <div class="contents-container" id="contents-container">
                     <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- Pagination Controls -->
+                <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 16px; border: 1px solid var(--glass-border);">
+                    <div class="page-size-selector">
+                        <label for="page-size-select" style="font-size: 0.85rem; color: var(--text-muted); margin-right: 8px;">Items per page:</label>
+                        <select id="page-size-select" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 8px; font-size: 0.85rem;">
+                            <option value="10">10</option>
+                            <option value="50">50</option>
+                            <option value="200" selected>200</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+                    
+                    <div class="page-navigation" style="display: flex; align-items: center; gap: 12px;">
+                        <span id="pagination-info" style="font-size: 0.85rem; color: var(--text-muted);">Showing 0 of 0</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="prev-page-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" disabled>
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <button id="next-page-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" disabled>
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

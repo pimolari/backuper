@@ -20,7 +20,7 @@ fi
 PROJECT_ID=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['project_id'])")
 REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'europe-west1'))")
 FRONTEND_SERVICE_ACCOUNT_EMAIL="backuper-frontend-client@${PROJECT_ID}.iam.gserviceaccount.com"
-BACKEND_SERVICE_ACCOUNT_EMAIL="backuper-frontend-client@${PROJECT_ID}.iam.gserviceaccount.com"
+BACKEND_SERVICE_ACCOUNT_EMAIL="backuper-backend-client@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "Project ID: $PROJECT_ID"
 echo "Region: $REGION"

@@ -204,6 +204,125 @@ def run_integration_tests():
         assert len(res.json()["folders"]) == 0, "Nested folders under deleted folder still exist in cache"
         print("✓ Folder and all its nested contents recursively deleted and cleaned from cache successfully!")
 
+        # ---- TEST 9: Chunked Upload ----
+        print("\n--- Test 9: Chunked File Upload End-to-End ---")
+        init_payload = {
+            "path": "",
+            "filename": "chunked_test.bin",
+            "file_size": 12,
+            "content_type": "application/octet-stream"
+        }
+        res = requests.post(f"{base_url}/files/upload/initiate", data=init_payload, headers=headers)
+        print("Initiate Chunked Upload Status:", res.status_code)
+        assert res.status_code == 200, "Initiation failed"
+        upload_id = res.json()["upload_id"]
+
+        # Chunk 1 (6 bytes)
+        res = requests.post(
+            f"{base_url}/files/upload/chunk",
+            data={"upload_id": upload_id, "offset": 0},
+            files={"file": ("chunked_test.bin", b"hello ", "application/octet-stream")},
+            headers=headers
+        )
+        print("Upload Chunk 1 Status:", res.status_code)
+        assert res.status_code == 200, "Chunk 1 upload failed"
+
+        # Chunk 2 (6 bytes)
+        res = requests.post(
+            f"{base_url}/files/upload/chunk",
+            data={"upload_id": upload_id, "offset": 6},
+            files={"file": ("chunked_test.bin", b"world!", "application/octet-stream")},
+            headers=headers
+        )
+        print("Upload Chunk 2 Status:", res.status_code)
+        assert res.status_code == 200, "Chunk 2 upload failed"
+
+        # Complete
+        res = requests.post(
+            f"{base_url}/files/upload/complete",
+            data={"upload_id": upload_id},
+            headers=headers
+        )
+        print("Complete Chunked Upload Status:", res.status_code)
+        assert res.status_code == 200, "Completion failed"
+        complete_data = res.json()
+        file_id = complete_data["file"]["id"]
+        assert complete_data["file"]["size"] == 12
+
+        # Verify content by downloading
+        res = requests.get(f"{base_url}/files/download/{file_id}", headers=headers)
+        print("Download Assembled File Status:", res.status_code)
+        assert res.status_code == 200, "Download failed"
+        assert res.content == b"hello world!", f"Content mismatch: expected 'hello world!', got {res.content}"
+        print("✓ Assembled file content matches original input exactly!")
+
+        # Clean up chunked file
+        res = requests.delete(f"{base_url}/files/{file_id}", headers=headers)
+        assert res.status_code == 200, "Clean up failed"
+        print("✓ Chunked upload verification finished successfully!")
+
+
+        # ---- TEST 10: Folder Deduplication ----
+        print("\n--- Test 10: Folder Deduplication ---")
+        # Create an explicit folder
+        res = requests.post(f"{base_url}/files/create-folder", data={"path": "", "folder_name": "DedupeFolder"}, headers=headers)
+        assert res.status_code == 200
+        # Upload a file inside it
+        res = requests.post(f"{base_url}/files/upload", headers=headers, data={"path": "DedupeFolder"}, files={"file": ("test.txt", b"dedupe", "text/plain")})
+        assert res.status_code == 200
+        # Browse root and verify "DedupeFolder" appears exactly once
+        res = requests.get(f"{base_url}/files/browse?path=", headers=headers)
+        folders = res.json()["folders"]
+        assert folders.count("DedupeFolder") == 1, "DedupeFolder appeared more than once!"
+        print("✓ Folder deduplication verified!")
+
+        # ---- TEST 11: Pagination ----
+        print("\n--- Test 11: Pagination Slicing ---")
+        # Upload 3 more files to root to have a total of 3 files (assuming we delete others or have them)
+        # Root currently has nothing because we deleted Documents and Chunked file. Oh wait, we have DedupeFolder.
+        # Let's upload 3 files
+        for i in range(3):
+            requests.post(f"{base_url}/files/upload", headers=headers, data={"path": ""}, files={"file": (f"pfile_{i}.txt", b"a", "text/plain")})
+        
+        # Now root has 1 folder (DedupeFolder) and 3 files (pfile_0.txt, pfile_1.txt, pfile_2.txt) -> total 4 items
+        # Let's paginate with limit=2
+        res1 = requests.get(f"{base_url}/files/browse?path=&limit=2&page=1", headers=headers)
+        page1 = res1.json()
+        assert page1["total_count"] == 4, f"Expected 4 total items, got {page1['total_count']}"
+        assert len(page1["folders"]) + len(page1["files"]) == 2
+        # Page 1 should have DedupeFolder and pfile_0.txt (sorted alphabetically)
+        # actually pfile_0, pfile_1, pfile_2.
+        
+        res2 = requests.get(f"{base_url}/files/browse?path=&limit=2&page=2", headers=headers)
+        page2 = res2.json()
+        assert len(page2["folders"]) + len(page2["files"]) == 2
+        print("✓ Pagination verified!")
+
+        # ---- TEST 12: Image Thumbnails ---
+        print("\n--- Test 12: Image Thumbnails in Chunked Upload ---")
+        init_payload_thumb = {
+            "path": "",
+            "filename": "image.png",
+            "file_size": 12,
+            "content_type": "image/png",
+            "thumbnail_base64": "data:image/jpeg;base64,/9j/4AAQSk..."
+        }
+        res = requests.post(f"{base_url}/files/upload/initiate", data=init_payload_thumb, headers=headers)
+        assert res.status_code == 200
+        up_id = res.json()["upload_id"]
+        res = requests.post(f"{base_url}/files/upload/chunk", data={"upload_id": up_id, "offset": 0}, files={"file": ("image.png", b"imagebytes", "image/png")}, headers=headers)
+        assert res.status_code == 200
+        res = requests.post(f"{base_url}/files/upload/complete", data={"upload_id": up_id}, headers=headers)
+        assert res.status_code == 200
+        
+        res = requests.get(f"{base_url}/files/browse?path=", headers=headers)
+        files = res.json()["files"]
+        img_file = next((f for f in files if f["name"] == "image.png"), None)
+        assert img_file is not None
+        assert img_file.get("thumbnail_base64") == "data:image/jpeg;base64,/9j/4AAQSk...", "Thumbnail base64 was not cached!"
+        print("✓ Image thumbnails cached and retrieved successfully!")
+
+
         print("\n===============================================")
         print("  ALL INTEGRATION TESTS PASSED TRIUMPHANTLY!   ")
         print("===============================================")

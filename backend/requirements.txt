@@ -8,3 +8,5 @@ python-multipart
 pydantic
 bcrypt
 email-validator
+google-cloud-pubsub
+Pillow

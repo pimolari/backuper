@@ -1,14 +1,20 @@
 """File management routes — browse, upload, download, delete, sync."""
 
 import io
+import json
+import base64
 
-from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import List
 
 from backend.auth.dependencies import get_current_user
 from backend.clients.gcs_client import GCSClient
 from backend.models.file import BrowseResponse
 from backend.services import file_service
+from backend.common.events import broker
+import asyncio
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 _gcs = GCSClient()
@@ -22,6 +28,27 @@ def browse_files(
     current_user: dict = Depends(get_current_user),
 ):
     return file_service.browse_files(current_user, path, limit, page)
+
+
+async def event_generator():
+    """Generator for Server-Sent Events"""
+    q = await broker.subscribe()
+    try:
+        while True:
+            # Wait for an event
+            message = await q.get()
+            yield f"data: {message}\n\n"
+    except asyncio.CancelledError:
+        pass
+    finally:
+        broker.unsubscribe(q)
+
+@router.get("/events")
+async def sse_events(request: Request):
+    """
+    Server-Sent Events endpoint. The client will reconnect automatically.
+    """
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.get("/tree")
@@ -58,7 +85,6 @@ def initiate_chunked_upload(
     filename: str = Form(...),
     file_size: int = Form(...),
     content_type: str = Form("application/octet-stream"),
-    thumbnail_base64: str = Form(None),
     current_user: dict = Depends(get_current_user),
 ):
     """
@@ -70,7 +96,6 @@ def initiate_chunked_upload(
         filename=filename,
         file_size=file_size,
         content_type=content_type,
-        thumbnail_base64=thumbnail_base64,
     )
 
 
@@ -139,6 +164,48 @@ def delete_file(
     return file_service.delete_file(current_user, file_id)
 
 
+class BulkDeleteRequest(BaseModel):
+    items: List[str]
+
+@router.post("/bulk-delete/queue")
+def queue_bulk_delete(
+    request: BulkDeleteRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Queue a list of file/folder IDs for deletion via Pub/Sub chunks."""
+    return file_service.queue_bulk_delete(current_user, request.items)
+
+
+@router.post("/internal/bulk-delete")
+async def bulk_delete_push_endpoint(request: Request):
+    """
+    Pub/Sub Push endpoint for asynchronous bulk deletions.
+    """
+    envelope = await request.json()
+    if not envelope:
+        raise HTTPException(status_code=400, detail="Bad Request: no JSON envelope")
+    
+    message = envelope.get("message")
+    if not message:
+        raise HTTPException(status_code=400, detail="Bad Request: invalid Pub/Sub message format")
+    
+    try:
+        # data is Base64 encoded JSON
+        payload_bytes = base64.b64decode(message.get("data", ""))
+        payload = json.loads(payload_bytes)
+        
+        file_service.process_bulk_delete_message(payload)
+        
+        # Broadcast that a deletion chunk completed
+        asyncio.create_task(broker.broadcast(json.dumps({"type": "bulk_delete_complete"})))
+        
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Error processing push delivery for bulk delete: {e}")
+        # Return 200 so Pub/Sub doesn't infinitely retry broken messages
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/create-folder")
 def create_empty_folder(
     path: str = Form(""),
@@ -147,6 +214,31 @@ def create_empty_folder(
 ):
     return file_service.create_folder(current_user, path, folder_name)
 
+
+@router.post("/internal/snapshot")
+async def generate_snapshot_push(request: Request):
+    """Pub/Sub push endpoint for snapshot generation."""
+    import base64
+    import json
+    
+    body = await request.json()
+    message = body.get("message", {})
+    data = message.get("data")
+    if not data:
+        return {"status": "ignored", "reason": "no data"}
+        
+    try:
+        payload_bytes = base64.b64decode(data)
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        file_service.process_snapshot_message(payload)
+        return {"status": "success"}
+    except Exception as e:
+        # We should still return 200 so Pub/Sub doesn't continuously retry on hard errors,
+        # or we could return 500 to leverage Pub/Sub retries.
+        # Given this is a background task, logging is most important.
+        from backend.common.logging import tech_logger
+        tech_logger.error("Error processing snapshot push: %s", e)
+        return {"status": "error", "message": str(e)}
 
 @router.post("/sync")
 def sync_cache(current_user: dict = Depends(get_current_user)):

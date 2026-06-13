@@ -31,11 +31,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Helper to display toast notifications
     window.showToast = function(message, type = "success") {
         const toast = document.createElement("div");
-        toast.className = `alert-toast ${type}`;
+        toast.className = `alert ${type === "success" ? "alert-success" : type === "error" ? "alert-error" : "alert-info"}`;
         
         const icon = document.createElement("i");
         if (type === "success") {
-            icon.className = "fa-solid fa-circle-check";
+            icon.className = "fa-solid fa-check-circle";
         } else {
             icon.className = "fa-solid fa-circle-exclamation";
         }
@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
             toast.style.opacity = "0";
             toast.style.transform = "translateX(50px)";
+            toast.style.transition = "all 0.3s ease";
             setTimeout(() => {
                 toast.remove();
             }, 300);

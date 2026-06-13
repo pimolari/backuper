@@ -5,10 +5,16 @@ deleting files, creating folders, and cache synchronisation.
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import json
+import base64
+from io import BytesIO
+
+from PIL import Image
 
 from backend import config
 from backend.clients.datastore_client import DatastoreClient
 from backend.clients.gcs_client import GCSClient
+from backend.clients.pubsub_client import PubSubClient
 from backend.common.exceptions import (
     ForbiddenError,
     InternalError,
@@ -20,6 +26,7 @@ from backend.models.file import BrowseResponse, FileItem
 
 _db = DatastoreClient()
 _gcs = GCSClient()
+_pubsub = PubSubClient()
 
 
 # ─── helpers ────────────────────────────────────────────────────────
@@ -57,7 +64,6 @@ def _cache_file(
     storage_location: str,
     storage_class: str,
     is_dir: bool = False,
-    thumbnail_base64: str = None,
 ) -> Dict[str, Any]:
     """Persist a file/folder entry in the Datastore cache."""
     clean_path = path.strip("/")
@@ -75,10 +81,7 @@ def _cache_file(
         "is_dir": is_dir,
     }
     
-    if thumbnail_base64:
-        file_data["thumbnail_base64"] = thumbnail_base64
-        
-    entity = _db.create_entity(key, file_data, exclude_from_indexes=("thumbnail_base64",))
+    entity = _db.create_entity(key, file_data)
     _db.put(entity)
 
     file_data["id"] = key_str
@@ -92,6 +95,53 @@ def _get_cached_file_by_id(file_id: str) -> Optional[Dict[str, Any]]:
         item = dict(entity)
         item["id"] = file_id
         return item
+    return None
+
+def generate_thumbnail(image_bytes: bytes) -> str:
+    """Generate a 200x200 JPEG thumbnail and return as base64 string."""
+    try:
+        with Image.open(BytesIO(image_bytes)) as img:
+            img.thumbnail((200, 200), Image.Resampling.LANCZOS)
+            out_io = BytesIO()
+            # If the image has an alpha channel, convert it to RGB before saving as JPEG
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(out_io, format="JPEG", quality=70)
+            encoded = base64.b64encode(out_io.getvalue()).decode("utf-8")
+            return f"data:image/jpeg;base64,{encoded}"
+    except Exception as e:
+        tech_logger.error("Error generating thumbnail: %s", e)
+        raise e
+
+def process_snapshot_message(payload: dict) -> None:
+    """Process a snapshot generation request."""
+    user_id = payload.get("user_id")
+    bucket = payload.get("bucket")
+    blob_name = payload.get("blob_name")
+    file_id = payload.get("file_id")
+
+    tech_logger.info("Service processing snapshot request for %s/%s", bucket, blob_name)
+
+    # 1. Download file content from GCS
+    image_bytes = _gcs.get_file_content(bucket, blob_name)
+    if not image_bytes:
+        tech_logger.error("Failed to download %s/%s for snapshot generation", bucket, blob_name)
+        return
+
+    # 2. Generate thumbnail
+    thumbnail_base64 = generate_thumbnail(image_bytes)
+
+    # 3. Create FileSnapshot entity
+    snapshot_key = _db.key("FileSnapshot", file_id)
+    snapshot_data = {
+        "file_id": file_id,
+        "thumbnail_base64": thumbnail_base64
+    }
+    
+    entity = _db.create_entity(snapshot_key, snapshot_data, exclude_from_indexes=("thumbnail_base64",))
+    _db.put(entity)
+    
+    tech_logger.info("Service successfully generated and saved snapshot for %s", file_id)
     return None
 
 
@@ -159,6 +209,10 @@ def _get_cached_files(
 def _delete_cached_file(file_id: str) -> None:
     key = _db.key("FileCache", file_id)
     _db.delete(key)
+    
+    # Also delete associated snapshot if it exists
+    snap_key = _db.key("FileSnapshot", file_id)
+    _db.delete(snap_key)
 
 
 def _delete_cached_files_under_path(
@@ -177,13 +231,26 @@ def _delete_cached_files_under_path(
     query.add_filter("storage_location", "=", bucket_name)
     
     clean = path_prefix.strip("/")
+    keys_to_delete = []
+    snap_keys_to_delete = []
+    
     for entity in query.fetch():
         if not clean:
-            _db.delete(entity.key)
+            keys_to_delete.append(entity.key)
+            snap_keys_to_delete.append(_db.key("FileSnapshot", entity.key.name))
         else:
             path = entity.get("path", "")
             if path == clean or path.startswith(clean + "/"):
-                _db.delete(entity.key)
+                keys_to_delete.append(entity.key)
+                snap_keys_to_delete.append(_db.key("FileSnapshot", entity.key.name))
+                
+    if keys_to_delete:
+        # Datastore allows batch delete, but we will iterate to be safe
+        for k in keys_to_delete:
+            _db.delete(k)
+    if snap_keys_to_delete:
+        for sk in snap_keys_to_delete:
+            _db.delete(sk)
 
 
 
@@ -251,10 +318,7 @@ def browse_files(
                 storage_class=item["storage_class"],
                 is_dir=False,
             )
-            # Monkey-patch thumbnail_base64 if it exists for backwards-compatibility 
-            # with the strict FileItem model schema constraints.
-            if "thumbnail_base64" in item:
-                file_item.thumbnail_base64 = item["thumbnail_base64"]
+
             files.append(file_item)
 
     folders.sort()
@@ -274,6 +338,15 @@ def browse_files(
         file_offset = offset - len(folders)
         p_files = files[file_offset:file_offset+limit]
 
+
+    # Fetch snapshots for images in the current page
+    for file_item in p_files:
+        ext = file_item.name.split('.')[-1].lower() if '.' in file_item.name else ''
+        if ext in ("jpg", "jpeg", "png", "gif", "svg", "webp"):
+            snap_key = _db.key("FileSnapshot", file_item.id)
+            snap_entity = _db.get(snap_key)
+            if snap_entity and "thumbnail_base64" in snap_entity:
+                file_item.thumbnail_base64 = snap_entity["thumbnail_base64"]
     return BrowseResponse(
         current_path=clean_path,
         breadcrumbs=breadcrumbs,
@@ -295,13 +368,20 @@ def get_folder_tree(current_user: Dict[str, Any]) -> List[str]:
 
     folders: set[str] = set()
     for item in query.fetch():
-        path = item.get("path", "")
+        path = item.get("path", "").strip("/")
+        if not path:
+            continue
         parts = path.split("/")
-        if len(parts) > 1:
-            for i in range(1, len(parts)):
-                folders.add("/".join(parts[:i]))
-        elif item.get("is_dir", False) and path:
-            folders.add(path)
+        
+        # If it's a directory, `path` is the directory itself.
+        # If it's a file, `path` is actually the full blob name (including the file name).
+        # We only want to add up to the parent directory for files.
+        is_dir = item.get("is_dir", False)
+        limit = len(parts) + 1 if is_dir else len(parts)
+        
+        # Add every ancestor prefix
+        for i in range(1, limit):
+            folders.add("/".join(parts[:i]))
 
     return sorted(folders)
 
@@ -355,6 +435,16 @@ def upload_file(
     biz_logger.info(
         "File uploaded: %s → %s/%s", filename, active_bucket, blob_name
     )
+
+    ext = filename.split('.')[-1].lower() if '.' in filename else ''
+    if ext in ("jpg", "jpeg", "png", "gif", "svg", "webp"):
+        _pubsub.publish_message("generate-snapshot", {
+            "user_id": current_user["id"],
+            "bucket": active_bucket,
+            "blob_name": blob_name,
+            "file_id": cached["id"]
+        })
+
     return {"message": "File uploaded and cached successfully", "file": cached}
 
 
@@ -364,7 +454,6 @@ def initiate_chunked_upload(
     filename: str,
     file_size: int,
     content_type: str,
-    thumbnail_base64: str = None,
 ) -> Dict[str, Any]:
     """
     Step 1 of chunked upload. Initializes the session and GCS resumable session (or local temp path).
@@ -375,7 +464,6 @@ def initiate_chunked_upload(
         filename: Target name for the assembled file.
         file_size: Expected total size of the final file.
         content_type: MIME type of the file.
-        thumbnail_base64: Optional base64-encoded thumbnail payload.
         
     Returns:
         Dict: Information including the upload_id and chunk_size boundaries.
@@ -403,8 +491,6 @@ def initiate_chunked_upload(
         "created_at": datetime.utcnow().isoformat(),
     }
 
-    if thumbnail_base64:
-        session_data["thumbnail_base64"] = thumbnail_base64
 
     if config.USE_REAL_GCP:
         session_data["gcs_session_url"] = upload_target
@@ -412,7 +498,7 @@ def initiate_chunked_upload(
         session_data["temp_file_path"] = upload_target
 
     key = _db.key("UploadSession", upload_id)
-    entity = _db.create_entity(key, session_data, exclude_from_indexes=("thumbnail_base64",))
+    entity = _db.create_entity(key, session_data)
     _db.put(entity)
 
     biz_logger.info(
@@ -517,7 +603,6 @@ def complete_chunked_upload(
         storage_location=bucket,
         storage_class=storage_class,
         is_dir=False,
-        thumbnail_base64=session.get("thumbnail_base64"),
     )
 
     # Clean up session
@@ -527,6 +612,16 @@ def complete_chunked_upload(
         "Chunked upload completed and registered: %s (size: %d)",
         filename, file_size,
     )
+    
+    content_type = session.get("content_type", "")
+    if content_type.startswith("image/"):
+        _pubsub.publish_message("generate-snapshot", {
+            "user_id": current_user["id"],
+            "bucket": bucket,
+            "blob_name": blob_name,
+            "file_id": cached["id"]
+        })
+
     return {"message": "File uploaded and registered successfully", "file": cached}
 
 
@@ -587,6 +682,56 @@ def delete_folder(
     return {"message": f"Folder {clean} and its contents deleted successfully"}
 
 
+def queue_bulk_delete(current_user: Dict[str, Any], items: list[str]) -> dict:
+    """Queue a list of file/folder IDs for deletion via Pub/Sub chunks."""
+    from backend.clients.pubsub_client import PubSubClient
+    
+    if not items:
+        return {"message": "No items to delete"}
+        
+    pubsub = PubSubClient()
+    chunk_size = 10
+    chunks = [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+    
+    for i, chunk in enumerate(chunks):
+        payload = {
+            "current_user": current_user,
+            "items": chunk,
+            "chunk_index": i,
+            "total_chunks": len(chunks)
+        }
+        pubsub.publish_message("bulk-delete", payload)
+        
+    biz_logger.info(f"Queued {len(items)} items for deletion across {len(chunks)} chunks.")
+    return {"message": f"Queued {len(items)} items for deletion", "chunks": len(chunks)}
+
+
+def process_bulk_delete_message(payload: dict) -> None:
+    """Worker function to process a bulk delete chunk from Pub/Sub."""
+    current_user = payload.get("current_user")
+    items = payload.get("items", [])
+    
+    if not current_user or not items:
+        tech_logger.warning("Invalid bulk delete payload: missing user or items.")
+        return
+        
+    tech_logger.info(f"Processing bulk delete chunk: {len(items)} items")
+    for item_id in items:
+        try:
+            if item_id.startswith("folder:"):
+                # Format: folder:path
+                folder_path = item_id.replace("folder:", "", 1)
+                delete_folder(current_user, folder_path)
+            elif item_id.startswith("file:"):
+                file_id = item_id.replace("file:", "", 1)
+                delete_file(current_user, file_id)
+            else:
+                # Fallback assuming it's a file ID
+                delete_file(current_user, item_id)
+        except Exception as e:
+            tech_logger.error(f"Failed to delete {item_id}: {str(e)}")
+
+
 def create_folder(
     current_user: Dict[str, Any],
     path: str,
@@ -616,14 +761,38 @@ def create_folder(
 def sync_cache(current_user: Dict[str, Any]) -> dict:
     """
     Force-sync the Datastore cache with the real GCS bucket contents.
+    Avoids deleting FileSnapshots for files that still exist.
     """
     active_bucket = _require_active_bucket(current_user)
     storage_class = _get_bucket_storage_class(current_user, active_bucket)
 
     real_blobs = _gcs.list_bucket_blobs(active_bucket)
-    _delete_cached_files_under_path(current_user["id"], active_bucket, "")
+    
+    # Create a set of keys for the files that actually exist
+    real_blob_keys = set()
+    for blob in real_blobs:
+        if blob["path"].endswith("/"):
+            continue
+        clean_path = blob["path"].strip("/")
+        # Key format: user_id:storage_location:path
+        key_str = f"{current_user['id']}:{active_bucket}:{clean_path}"
+        real_blob_keys.add(key_str)
+
+    # Fetch existing cache for this user & bucket
+    query = _db.query(kind="FileCache")
+    query.add_filter("user_id", "=", current_user["id"])
+    query.add_filter("storage_location", "=", active_bucket)
+    
+    # Find cached items that are NO LONGER in GCS and delete them & their snapshots
+    for entity in query.fetch():
+        # Only delete files that are not in the real bucket
+        if entity.key.name not in real_blob_keys and not entity.get("is_dir"):
+            _db.delete(entity.key)
+            _db.delete(_db.key("FileSnapshot", entity.key.name))
 
     count = 0
+    # Re-cache or update existing blobs (this overwrites the FileCache entity, 
+    # but does NOT touch the FileSnapshot, preserving our images)
     for blob in real_blobs:
         if blob["path"].endswith("/"):
             continue

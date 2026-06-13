@@ -2,7 +2,7 @@
   "User:alice@example.com": {
     "name": "Alice Developer",
     "email": "alice@example.com",
-    "hashed_password": "$2b$12$y9q3PZNkvLDvkNboRPrCvu.s5/.lFeeGCpPETjWMCf4UVn010rvkO",
+    "hashed_password": "$2b$12$iQbROdcdANKIG8Y86huUt.iIYVTMyRwxwVXo/b6e6PmTpq7wlhATC",
     "active_bucket": "backuper-c160f8cc-europe-west1",
     "buckets": [
       {
@@ -15,7 +15,7 @@
   "User:bob@example.com": {
     "name": "Bob Security Auditor",
     "email": "bob@example.com",
-    "hashed_password": "$2b$12$JtPYZ7/35QaHmazPvcYO/O2Iy85bb7oWtsv0wCBIOTh5Id6JScRQu",
+    "hashed_password": "$2b$12$dSZhGdGndOI8Ktrdwrycs..XePZidtuLEKbHf8P3yd8GfBssXk.p6",
     "active_bucket": "backuper-4b9bb806-us-central1",
     "buckets": [
       {
@@ -30,7 +30,7 @@
     "name": "DedupeFolder",
     "path": "DedupeFolder",
     "size": 0,
-    "upload_date": "2026-06-10T22:37:22.055319",
+    "upload_date": "2026-06-13T10:54:52.839506",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": true
@@ -40,7 +40,7 @@
     "name": "test.txt",
     "path": "DedupeFolder/test.txt",
     "size": 6,
-    "upload_date": "2026-06-10T22:37:22.056674",
+    "upload_date": "2026-06-13T10:54:52.840845",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -50,7 +50,7 @@
     "name": "pfile_0.txt",
     "path": "pfile_0.txt",
     "size": 1,
-    "upload_date": "2026-06-10T22:37:22.059209",
+    "upload_date": "2026-06-13T10:54:52.843318",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -60,7 +60,7 @@
     "name": "pfile_1.txt",
     "path": "pfile_1.txt",
     "size": 1,
-    "upload_date": "2026-06-10T22:37:22.060592",
+    "upload_date": "2026-06-13T10:54:52.844701",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -70,7 +70,7 @@
     "name": "pfile_2.txt",
     "path": "pfile_2.txt",
     "size": 1,
-    "upload_date": "2026-06-10T22:37:22.061972",
+    "upload_date": "2026-06-13T10:54:52.846037",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -79,11 +79,14 @@
     "user_id": "alice@example.com",
     "name": "image.png",
     "path": "image.png",
-    "size": 12,
-    "upload_date": "2026-06-10T22:37:22.067784",
+    "size": 69,
+    "upload_date": "2026-06-13T10:54:52.851824",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
-    "is_dir": false,
-    "thumbnail_base64": "data:image/jpeg;base64,/9j/4AAQSk..."
+    "is_dir": false
+  },
+  "FileSnapshot:alice@example.com:backuper-c160f8cc-europe-west1:image.png": {
+    "file_id": "alice@example.com:backuper-c160f8cc-europe-west1:image.png",
+    "thumbnail_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxmiiigD//2Q=="
   }
 }

@@ -63,3 +63,76 @@ resource "google_project_iam_member" "storage_admin" {
   role    = "roles/storage.admin"
   member  = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
 }
+
+# ---------------------------------------------------------
+# Pub/Sub Infrastructure for Asynchronous Snapshot Generation
+# ---------------------------------------------------------
+
+resource "google_pubsub_topic" "generate_snapshot" {
+  name    = "generate-snapshot"
+  project = var.project_id
+}
+
+resource "google_pubsub_subscription" "generate_snapshot_sub" {
+  name    = "generate-snapshot-sub"
+  topic   = google_pubsub_topic.generate_snapshot.name
+  project = var.project_id
+
+  ack_deadline_seconds = 20
+
+  # Retain unacknowledged messages for 7 days
+  message_retention_duration = "604800s"
+}
+
+# Grant Pub/Sub Publisher role to backend SA (to trigger snapshots)
+resource "google_pubsub_topic_iam_member" "backend_publisher" {
+  project = var.project_id
+  topic   = google_pubsub_topic.generate_snapshot.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
+}
+
+# Grant Pub/Sub Subscriber role to backend SA (for the worker)
+resource "google_pubsub_subscription_iam_member" "backend_subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.generate_snapshot_sub.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
+}
+
+# ---------------------------------------------------------
+# Pub/Sub Infrastructure for Asynchronous Bulk Deletion
+# ---------------------------------------------------------
+
+resource "google_pubsub_topic" "bulk_delete" {
+  name    = "bulk-delete"
+  project = var.project_id
+}
+
+resource "google_pubsub_subscription" "bulk_delete_sub" {
+  name    = "bulk-delete-sub"
+  topic   = google_pubsub_topic.bulk_delete.name
+  project = var.project_id
+
+  ack_deadline_seconds = 600
+
+  # Retain unacknowledged messages for 7 days
+  message_retention_duration = "604800s"
+}
+
+# Grant Pub/Sub Publisher role to backend SA (to trigger bulk deletes)
+resource "google_pubsub_topic_iam_member" "backend_bulk_publisher" {
+  project = var.project_id
+  topic   = google_pubsub_topic.bulk_delete.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
+}
+
+# Grant Pub/Sub Subscriber role to backend SA (for receiving bulk deletes)
+resource "google_pubsub_subscription_iam_member" "backend_bulk_subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.bulk_delete_sub.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
+}
+

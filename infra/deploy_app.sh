@@ -71,6 +71,16 @@ echo "Retrieving backend URL..."
 BACKEND_URL=$(gcloud run services describe backend --platform=managed --region="$REGION" --project="$PROJECT_ID" --format="value(status.url)")
 echo "Backend URL: $BACKEND_URL"
 
+# 4.5. Update Pub/Sub Push Subscriptions
+echo "Configuring Pub/Sub Push endpoints for asynchronous processing..."
+gcloud pubsub subscriptions update generate-snapshot-sub \
+  --push-endpoint="${BACKEND_URL}/api/files/internal/snapshot" \
+  --project="$PROJECT_ID"
+
+gcloud pubsub subscriptions update bulk-delete-sub \
+  --push-endpoint="${BACKEND_URL}/api/files/internal/bulk-delete" \
+  --project="$PROJECT_ID"
+
 # 5. Deploy Frontend service to Google Cloud Run (injecting BACKEND_URL)
 echo "Deploying frontend to Cloud Run..."
 gcloud run deploy frontend \

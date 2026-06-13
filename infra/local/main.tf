@@ -32,7 +32,8 @@ resource "google_project_service" "services" {
     "firestore.googleapis.com",
     "iam.googleapis.com",
     "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com"
+    "cloudbuild.googleapis.com",
+    "pubsub.googleapis.com"
   ])
   project            = google_project.project.project_id
   service            = each.key

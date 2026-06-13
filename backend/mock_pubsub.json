@@ -1,0 +1,28 @@
+{
+  "generate-snapshot": [
+    {
+      "message_id": "8b4e5fb1-28e9-4447-ae94-ed2882e674c1",
+      "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
+      "attributes": {},
+      "publish_time": "2026-06-13T08:18:27.175098"
+    },
+    {
+      "message_id": "951807bf-15b1-46dd-b682-9842840da64d",
+      "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
+      "attributes": {},
+      "publish_time": "2026-06-13T08:39:36.840880"
+    },
+    {
+      "message_id": "09e97c2d-1f9a-43de-a36e-597beab4a867",
+      "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
+      "attributes": {},
+      "publish_time": "2026-06-13T09:12:22.352032"
+    },
+    {
+      "message_id": "179ee8c6-e775-47f8-b961-f8f60849baf3",
+      "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
+      "attributes": {},
+      "publish_time": "2026-06-13T10:54:52.852275"
+    }
+  ]
+}

@@ -10,14 +10,8 @@ echo "==============================================="
 echo "  Deploying GCP Infrastructure via Terraform   "
 echo "==============================================="
 
-# 1. Parse variables from JSON file using Python to avoid external dependencies like jq
-echo "Parsing variables from variables.tfvars.json..."
-if [ ! -f "variables.tfvars.json" ]; then
-    echo "Error: variables.tfvars.json not found!"
-    exit 1
-fi
-
-PROJECT_ID=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['project_id'])")
+# 1. Load shared configuration
+source ./common.sh
 STATE_BUCKET=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['state_bucket_name'])")
 REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'europe-west1'))")
 ADMIN_GROUP_EMAIL=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('admin_group_email', ''))")

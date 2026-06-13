@@ -109,6 +109,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 5. API Fetch Wrapper
+    /**
+     * Wrapper for fetch API to handle authorization, JSON parsing, and basic error toast notifications.
+     * @param {string} endpoint - The relative or absolute API URL to fetch.
+     * @param {Object} [options={}] - Standard fetch options (method, body, headers).
+     * @returns {Promise<Object|Response|null>} - Returns the JSON payload, the raw response for octet-streams, or null on error.
+     */
     async function apiRequest(endpoint, options = {}) {
         options.headers = options.headers || {};
         options.headers["Authorization"] = `Bearer ${token}`;
@@ -319,14 +325,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 7. Refresh Folder Tree & Active View
+    /**
+     * Refreshes the folder tree side panel and the main file browser view.
+     * Executes API requests in parallel for optimized loading speeds.
+     */
     async function refreshWorkspace() {
-        const treeData = await apiRequest("/api/files/tree");
+        const [treeData, browseData] = await Promise.all([
+            apiRequest("/api/files/tree"),
+            apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}&limit=${pageSize}&page=${currentPage}`)
+        ]);
+
         if (treeData) {
             allFolderPaths = treeData;
             renderFolderTree();
         }
 
-        const browseData = await apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}&limit=${pageSize}&page=${currentPage}`);
         if (browseData) {
             foldersList = browseData.folders;
             filesList = browseData.files;

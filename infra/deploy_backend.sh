@@ -7,29 +7,11 @@ set -e
 cd "$(dirname "$0")"
 
 echo "==============================================="
-echo "  Deploying Backuper Services to Cloud Run    "
+echo "  Deploying Backuper Backend to Cloud Run     "
 echo "==============================================="
 
-# 1. Parse variables from JSON file using Python
-echo "Parsing variables from variables.tfvars.json..."
-if [ ! -f "variables.tfvars.json" ]; then
-    echo "Error: variables.tfvars.json not found!"
-    exit 1
-fi
-
-PROJECT_ID=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['project_id'])")
-REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'europe-west1'))")
-FRONTEND_SERVICE_ACCOUNT_EMAIL="backuper-frontend-client@${PROJECT_ID}.iam.gserviceaccount.com"
-BACKEND_SERVICE_ACCOUNT_EMAIL="backuper-backend-client@${PROJECT_ID}.iam.gserviceaccount.com"
-
-echo "Project ID: $PROJECT_ID"
-echo "Region: $REGION"
-echo "Frontend Service Account: $FRONTEND_SERVICE_ACCOUNT_EMAIL"
-echo "Backend Service Account: $BACKEND_SERVICE_ACCOUNT_EMAIL"
-
-# Configure gcloud for this project
-echo "Configuring gcloud project to $PROJECT_ID..."
-gcloud config set project "$PROJECT_ID"
+# 1. Load shared configuration
+source ./common.sh
 
 # 2. Create Artifact Registry repository for Docker images if it doesn't exist
 echo "Checking if Artifact Registry repository 'backuper-repo' exists..."

@@ -9,8 +9,11 @@ La infraestructura está estructurada de forma modular en dos fases o partes par
 ```text
 infra/
 ├── variables.tfvars.json  # Archivo de variables JSON del entorno
+├── common.sh              # (NEW) Script compartido que carga las configuraciones para evitar duplicados
 ├── deploy_infra.sh        # Automatiza la ejecución de Terraform (Partes 1 y 2)
-├── deploy_app.sh          # Automatiza la compilación con Cloud Build y despliegue a Cloud Run
+├── deploy_app.sh          # Automatiza la compilación con Cloud Build y despliegue a Cloud Run (Frontend y Backend)
+├── deploy_backend.sh      # Despliega únicamente el Backend
+├── deploy_frontend.sh     # Despliega únicamente el Frontend
 ├── part1/                 # Creación del Proyecto y Bucket de Estado
 │   ├── main.tf
 │   ├── variables.tf

@@ -23,6 +23,12 @@
       "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
       "attributes": {},
       "publish_time": "2026-06-13T10:54:52.852275"
+    },
+    {
+      "message_id": "d95f2501-9398-45dd-b2c2-23d620e428c2",
+      "data": "{\"user_id\": \"alice@example.com\", \"bucket\": \"backuper-c160f8cc-europe-west1\", \"blob_name\": \"image.png\", \"file_id\": \"alice@example.com:backuper-c160f8cc-europe-west1:image.png\"}",
+      "attributes": {},
+      "publish_time": "2026-06-13T23:40:54.959364"
     }
   ]
 }

@@ -86,6 +86,8 @@ cd infra/
 ```
 
 ### Option A: Deploy the Entire Application
+We utilize a shared `common.sh` script to avoid duplicate configuration logic. The deployment scripts automatically load environment variables from `variables.tfvars.json`.
+
 To compile and deploy both the Backend and Frontend sequentially, use the combined script. It automatically wires the Backend URL dynamically into the Frontend deployment:
 ```bash
 chmod +x deploy_app.sh

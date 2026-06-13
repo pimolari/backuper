@@ -2,7 +2,7 @@
   "User:alice@example.com": {
     "name": "Alice Developer",
     "email": "alice@example.com",
-    "hashed_password": "$2b$12$iQbROdcdANKIG8Y86huUt.iIYVTMyRwxwVXo/b6e6PmTpq7wlhATC",
+    "hashed_password": "$2b$12$Y1gfi61EDw8YOV2ouVnjSexWuJWb10EmV8ZuQ6cWs9l6T.Fq1OkMy",
     "active_bucket": "backuper-c160f8cc-europe-west1",
     "buckets": [
       {
@@ -15,7 +15,7 @@
   "User:bob@example.com": {
     "name": "Bob Security Auditor",
     "email": "bob@example.com",
-    "hashed_password": "$2b$12$dSZhGdGndOI8Ktrdwrycs..XePZidtuLEKbHf8P3yd8GfBssXk.p6",
+    "hashed_password": "$2b$12$N5ZnHzw4eVd1KQLVhTT5MuDvuZsEv0wgRD7bwcpx/2P7fWxaL7VfW",
     "active_bucket": "backuper-4b9bb806-us-central1",
     "buckets": [
       {
@@ -30,7 +30,7 @@
     "name": "DedupeFolder",
     "path": "DedupeFolder",
     "size": 0,
-    "upload_date": "2026-06-13T10:54:52.839506",
+    "upload_date": "2026-06-13T23:40:54.945823",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": true
@@ -40,7 +40,7 @@
     "name": "test.txt",
     "path": "DedupeFolder/test.txt",
     "size": 6,
-    "upload_date": "2026-06-13T10:54:52.840845",
+    "upload_date": "2026-06-13T23:40:54.947252",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -50,7 +50,7 @@
     "name": "pfile_0.txt",
     "path": "pfile_0.txt",
     "size": 1,
-    "upload_date": "2026-06-13T10:54:52.843318",
+    "upload_date": "2026-06-13T23:40:54.949736",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -60,7 +60,7 @@
     "name": "pfile_1.txt",
     "path": "pfile_1.txt",
     "size": 1,
-    "upload_date": "2026-06-13T10:54:52.844701",
+    "upload_date": "2026-06-13T23:40:54.951045",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -70,7 +70,7 @@
     "name": "pfile_2.txt",
     "path": "pfile_2.txt",
     "size": 1,
-    "upload_date": "2026-06-13T10:54:52.846037",
+    "upload_date": "2026-06-13T23:40:54.952476",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false
@@ -80,7 +80,7 @@
     "name": "image.png",
     "path": "image.png",
     "size": 69,
-    "upload_date": "2026-06-13T10:54:52.851824",
+    "upload_date": "2026-06-13T23:40:54.958771",
     "storage_location": "backuper-c160f8cc-europe-west1",
     "storage_class": "NEARLINE",
     "is_dir": false

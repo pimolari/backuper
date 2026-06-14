@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let userData = null;
     let foldersList = [];
     let filesList = [];
-    let allFolderPaths = []; 
+    let allFolderPaths = null; 
     let selectedItems = new Set(); // Tracks selected file IDs and folder names
     let lastCheckedIndex = -1; // Track for shift-click selection
 
@@ -153,29 +153,48 @@ document.addEventListener("DOMContentLoaded", () => {
     // 6. Init Application
     async function init() {
         await loadUserProfile();
-        setupSSE();
         await refreshWorkspace();
     }
 
-    function setupSSE() {
-        if (eventSource) return;
+    let sseTimeout = null;
+
+    function startTemporarySSE() {
+        if (eventSource) {
+            clearTimeout(sseTimeout);
+            sseTimeout = setTimeout(stopSSE, 180000); // 3 minutes
+            return;
+        }
+        
         eventSource = new EventSource('/api/files/events');
         eventSource.onmessage = (event) => {
             try {
+                // Ignore keepalive comments, though EventSource native handling ignores comments anyway
                 const data = JSON.parse(event.data);
                 if (data.type === "bulk_delete_complete") {
-                    refreshWorkspace();
+                    refreshWorkspace(true);
+                    stopSSE(); // We can stop early since the action is done
                 }
             } catch (err) {
                 console.error("Error parsing SSE data", err);
             }
         };
+        
         eventSource.onerror = () => {
-            console.error("SSE connection error, retrying...");
+            console.error("SSE connection error");
+            stopSSE(); // Just close on error, no need to endlessly retry
+        };
+
+        // Auto close after 3 minutes to save container cost
+        clearTimeout(sseTimeout);
+        sseTimeout = setTimeout(stopSSE, 180000);
+    }
+
+    function stopSSE() {
+        if (eventSource) {
             eventSource.close();
             eventSource = null;
-            setTimeout(setupSSE, 3000);
-        };
+        }
+        clearTimeout(sseTimeout);
     }
 
     async function loadUserProfile() {
@@ -264,6 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Close both modals immediately
                     profileModal.classList.remove("active");
                     bucketSelectorModal.classList.remove("active");
+                    allFolderPaths = null;
                     await init();
                 }
             });
@@ -328,17 +348,31 @@ document.addEventListener("DOMContentLoaded", () => {
     /**
      * Refreshes the folder tree side panel and the main file browser view.
      * Executes API requests in parallel for optimized loading speeds.
+     * @param {boolean} [forceTreeRefresh=false] - Whether to re-fetch the entire folder tree from the backend.
      */
-    async function refreshWorkspace() {
-        const [treeData, browseData] = await Promise.all([
-            apiRequest("/api/files/tree"),
-            apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}&limit=${pageSize}&page=${currentPage}`)
-        ]);
-
-        if (treeData) {
-            allFolderPaths = treeData;
-            renderFolderTree();
+    async function refreshWorkspace(forceTreeRefresh = false) {
+        const tasks = [];
+        const needsTreeFetch = forceTreeRefresh || !allFolderPaths;
+        
+        if (needsTreeFetch) {
+            tasks.push(
+                apiRequest("/api/files/tree").then(treeData => {
+                    if (treeData) {
+                        allFolderPaths = treeData;
+                        renderFolderTree();
+                    }
+                })
+            );
         }
+
+        tasks.push(
+            apiRequest(`/api/files/browse?path=${encodeURIComponent(currentPath)}&limit=${pageSize}&page=${currentPage}`).then(browseData => {
+                return browseData;
+            })
+        );
+
+        const results = await Promise.all(tasks);
+        const browseData = needsTreeFetch ? results[1] : results[0];
 
         if (browseData) {
             foldersList = browseData.folders;
@@ -705,6 +739,9 @@ document.addEventListener("DOMContentLoaded", () => {
             selectedItems.clear();
             updateSelectionUI();
             
+            // Open temporary SSE connection to listen for completion
+            startTemporarySSE();
+            
             // Remove locally instantly for better UX while backend processes
             itemsToQueue.forEach(item => {
                 const cb = document.querySelector(`.item-checkbox[data-id="${item}"]`);
@@ -779,7 +816,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         showToast("File deleted", "success");
                         selectedItems.delete(`file:${id}`);
                         updateSelectionUI();
-                        refreshWorkspace();
+                        refreshWorkspace(true);
                     }
                 }
             });
@@ -797,7 +834,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         showToast("Folder deleted", "success");
                         selectedItems.delete(`folder:${name}`);
                         updateSelectionUI();
-                        refreshWorkspace();
+                        refreshWorkspace(true);
                     }
                 }
             });
@@ -882,7 +919,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await apiRequest("/api/files/sync", { method: "POST" });
         if (result) {
             showToast(result.message, "success");
-            refreshWorkspace();
+            refreshWorkspace(true);
         }
     });
 
@@ -914,6 +951,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     async function uploadFiles(files) {
+        startTemporarySSE();
         const MAX_BYTES = 5 * 1024 * 1024 * 1024;
         let uploadedCount = 0;
         const total = files.length;
@@ -941,7 +979,7 @@ document.addEventListener("DOMContentLoaded", () => {
             pc.style.opacity = "0";
             setTimeout(() => pc.remove(), 400);
         }
-        refreshWorkspace();
+        refreshWorkspace(true);
     }
 
     function uploadFileWithProgress(file, index, total) {
@@ -1139,7 +1177,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Folder created", "success");
             folderModal.classList.remove("active");
             folderForm.reset();
-            refreshWorkspace();
+            refreshWorkspace(true);
         }
     });
 

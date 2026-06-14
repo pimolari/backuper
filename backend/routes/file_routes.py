@@ -35,9 +35,13 @@ async def event_generator():
     q = await broker.subscribe()
     try:
         while True:
-            # Wait for an event
-            message = await q.get()
-            yield f"data: {message}\n\n"
+            try:
+                # Wait for an event, with a 20s timeout for keep-alive
+                message = await asyncio.wait_for(q.get(), timeout=20.0)
+                yield f"data: {message}\n\n"
+            except asyncio.TimeoutError:
+                # Send a comment to keep the connection alive
+                yield ": keepalive\n\n"
     except asyncio.CancelledError:
         pass
     finally:

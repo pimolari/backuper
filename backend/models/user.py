@@ -9,7 +9,7 @@ class UserRegister(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: EmailStr
     password: str = Field(..., min_length=6)
-    default_region: str = "europe-west1"
+    default_region: str = "us-central1"
     default_storage_class: str = "STANDARD"
     invite_token: str
 

@@ -10,7 +10,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 USE_REAL_GCP = os.getenv("USE_REAL_GCP", "false").lower() == "true"
 
 # Storage Regions & Classes
-DEFAULT_REGION = "europe-west1"
+DEFAULT_REGION = "us-central1"
 ALLOWED_REGIONS = ["europe-west1", "us-central1", "us-east1", "asia-east1"]
 
 DEFAULT_STORAGE_CLASS = "STANDARD"

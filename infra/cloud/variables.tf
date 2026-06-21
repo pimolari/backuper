@@ -6,7 +6,7 @@ variable "project_id" {
 variable "region" {
   type        = string
   description = "The default region for GCS and Cloud Run"
-  default     = "europe-west1"
+  default     = "us-central1"
 }
 
 variable "admin_group_email" {

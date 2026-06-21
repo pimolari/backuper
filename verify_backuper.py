@@ -43,7 +43,7 @@ def run_integration_tests():
             "name": "Alice Developer",
             "email": "alice@example.com",
             "password": "alicepassword123",
-            "default_region": "europe-west1",
+            "default_region": "us-central1",
             "default_storage_class": "NEARLINE"
         }
         res = requests.post(f"{base_url}/auth/register", json=reg_payload)
@@ -55,7 +55,7 @@ def run_integration_tests():
         assert reg_data["email"] == "alice@example.com"
         assert reg_data["active_bucket"].startswith("backuper-"), "Bucket name invalid"
         assert len(reg_data["buckets"]) == 1
-        assert reg_data["buckets"][0]["region"] == "europe-west1"
+        assert reg_data["buckets"][0]["region"] == "us-central1"
         assert reg_data["buckets"][0]["storage_class"] == "NEARLINE"
         print("✓ Registration successful!")
 

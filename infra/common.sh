@@ -17,7 +17,7 @@ fi
 
 # Parse configuration using Python to avoid external dependencies like jq
 export PROJECT_ID=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['project_id'])")
-export REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'europe-west1'))")
+export REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'us-central1'))")
 export FRONTEND_SERVICE_ACCOUNT_EMAIL="backuper-frontend-client@${PROJECT_ID}.iam.gserviceaccount.com"
 export BACKEND_SERVICE_ACCOUNT_EMAIL="backuper-backend-client@${PROJECT_ID}.iam.gserviceaccount.com"
 

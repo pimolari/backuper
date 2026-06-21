@@ -51,7 +51,7 @@ Edite el archivo [variables.tfvars.json](variables.tfvars.json) en la raíz de e
   "project_id": "id-unico-del-proyecto-gcp",
   "org_id": "Id numérico de la organización (dejar en blanco "" si no tiene organización)",
   "billing_account": "XXXXXX-XXXXXX-XXXXXX (Cuenta de facturación de GCP)",
-  "region": "europe-west1 (Región por defecto)",
+  "region": "us-central1 (Región por defecto)",
   "admin_group_email": "grupo-administradores@dominio.com",
   "state_bucket_name": "nombre-unico-para-el-bucket-de-estado-tf"
 }

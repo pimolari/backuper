@@ -9,9 +9,22 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "db_region" {
+  type        = string
+  description = "The default region for Firestore"
+  default     = "europe-west1"
+}
+
 variable "admin_group_email" {
   type        = string
-  description = "The Google Group email for administrator IAM bindings"
+  description = "The Google Group email for administrator IAM bindings (editor role — groups cannot be owners)"
+  default     = ""
+}
+
+variable "owner_email" {
+  type        = string
+  description = "Individual user email that holds roles/owner. Required: GCP mandates at least one user owner (groups/SAs cannot hold owner)"
+  default     = ""
 }
 
 variable "billing_account" {

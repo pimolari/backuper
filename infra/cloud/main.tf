@@ -13,11 +13,26 @@ provider "google" {
   region  = var.region
 }
 
-# IAM binding for the admin group/user (conditionally applied when admin_group_email is set)
-resource "google_project_iam_member" "admin_group_binding" {
-  count   = var.admin_group_email != "" ? 1 : 0
+# ── Project Owner (individual user) ────────────────────────────────────────
+# GCP enforces two hard constraints:
+#   SOLO_REQUIRE_TOS_ACCEPTOR  — at least one *user:* must hold roles/owner.
+#   SOLO_GROUP_OWNERS_DISALLOWED — groups/serviceAccounts cannot hold roles/owner.
+# Therefore we keep the project owner as a named individual managed here.
+resource "google_project_iam_member" "project_owner" {
+  count   = var.owner_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/owner"
+  member  = "user:${var.owner_email}"
+}
+
+# ── Admin Group (editor — highest role groups may hold) ─────────────────────
+# Groups cannot be assigned roles/owner (SOLO_GROUP_OWNERS_DISALLOWED).
+# roles/editor gives full read/write on all services without IAM management.
+# If you need the group to also manage IAM, add roles/resourcemanager.projectIamAdmin.
+resource "google_project_iam_member" "admin_group_editor" {
+  count   = var.admin_group_email != "" ? 1 : 0
+  project = var.project_id
+  role    = "roles/editor"
   member  = "group:${var.admin_group_email}"
 }
 
@@ -25,7 +40,7 @@ resource "google_project_iam_member" "admin_group_binding" {
 resource "google_firestore_database" "datastore_db" {
   project     = var.project_id
   name        = "backuper-db"
-  location_id = var.region
+  location_id = var.db_region
   type        = "DATASTORE_MODE"
 
   # Prevent deletion of the database

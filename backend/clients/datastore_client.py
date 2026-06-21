@@ -145,6 +145,13 @@ class _MockDatastoreClient:
             del db[key_str]
             self._write_db(db)
 
+    def delete_multi(self, keys: list) -> None:
+        db = self._read_db()
+        for key in keys:
+            key_str = f"{key.kind}:{key.id_or_name}"
+            db.pop(key_str, None)
+        self._write_db(db)
+
     def query(self, kind: str) -> _MockQuery:
         return _MockQuery(self, kind)
 
@@ -181,6 +188,15 @@ class DatastoreClient:
 
     def delete(self, key) -> None:
         self._client.delete(key)
+
+    def delete_multi(self, keys: list) -> None:
+        """Batch-delete multiple keys in a single operation where possible."""
+        if not keys:
+            return
+        if config.USE_REAL_GCP:
+            self._client.delete_multi(keys)
+        else:
+            self._client.delete_multi(keys)
 
     def query(self, kind: str):
         return self._client.query(kind=kind)

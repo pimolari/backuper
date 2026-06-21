@@ -4,7 +4,7 @@ JWT token creation and decoding.
 Isolated from password management and FastAPI dependencies.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
@@ -19,7 +19,7 @@ def create_access_token(
 ) -> str:
     """Encode *data* into a signed JWT string."""
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(tz=timezone.utc) + (
         expires_delta
         or timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     )

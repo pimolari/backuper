@@ -9,7 +9,7 @@ the application can run locally without GCP credentials.
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Callable
 
 from backend import config
@@ -48,7 +48,7 @@ class _MockPubSubClient:
             "message_id": message_id,
             "data": data.decode("utf-8"),
             "attributes": attributes,
-            "publish_time": datetime.utcnow().isoformat(),
+            "publish_time": datetime.now(tz=timezone.utc).isoformat(),
         }
         state[topic].append(message)
         self._write_state(state)

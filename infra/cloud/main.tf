@@ -13,14 +13,12 @@ provider "google" {
   region  = var.region
 }
 
-# IAM bindings for a Google Group with administrator permissions (Owner role)
-resource "google_project_iam_binding" "admin_group_binding" {
+# IAM binding for the admin group/user (conditionally applied when admin_group_email is set)
+resource "google_project_iam_member" "admin_group_binding" {
+  count   = var.admin_group_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/owner"
-
-  members = [
-    "user:gerardo.mongelli@gmail.com"
-  ]
+  member  = "group:${var.admin_group_email}"
 }
 
 # Provision Firestore/Datastore Database in Datastore Mode
@@ -49,19 +47,25 @@ resource "google_service_account" "cloud_run_backend_sa" {
   project      = var.project_id
 }
 
-# Grant Datastore Owner permission to the Service Account
+# Grant Datastore User permission to the Service Account (least privilege)
 resource "google_project_iam_member" "datastore_user" {
   project = var.project_id
-  role    = "roles/datastore.owner"
+  role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
 }
 
 
-# Grant Storage Admin permission to the Service Account (to create/delete user GCS buckets dynamically)
+# Grant Storage Object Admin (scoped to backuper-* buckets via condition) — avoids project-wide admin
 resource "google_project_iam_member" "storage_admin" {
   project = var.project_id
   role    = "roles/storage.admin"
   member  = "serviceAccount:${google_service_account.cloud_run_backend_sa.email}"
+
+  condition {
+    title       = "backuper_buckets_only"
+    description = "Restrict storage access to backuper-prefixed buckets"
+    expression  = "resource.name.startsWith(\"projects/_/buckets/backuper-\")"
+  }
 }
 
 # ---------------------------------------------------------

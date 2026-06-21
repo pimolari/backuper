@@ -4,7 +4,7 @@ User service — business logic for registration, login, and profile management.
 No HTTP / FastAPI concepts live here; only pure business rules.
 """
 
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 
 from backend import config
@@ -100,7 +100,7 @@ def register_user(
             }
         ],
         "role": "user",
-        "enrolment_date": datetime.utcnow().isoformat(),
+        "enrolment_date": datetime.now(tz=timezone.utc).isoformat(),
         "last_login_date": None,
         "is_active": True,
     }
@@ -137,8 +137,7 @@ def login_user(email: str, password: str) -> dict:
     )
 
     # Update last login date
-    from datetime import datetime
-    user["last_login_date"] = datetime.utcnow().isoformat()
+    user["last_login_date"] = datetime.now(tz=timezone.utc).isoformat()
     key = _db.key("User", user["id"])
     entity = _db.get(key)
     if entity:

@@ -1077,3 +1077,233 @@ body {
     }
     .breadcrumbs { font-size: 0.82rem; }
 }
+
+/* =========================================================
+   Semantic classes extracted from former inline styles
+   ========================================================= */
+
+/* Sidebar full-width buttons (Admin Console & Logout) */
+.btn-sidebar-full {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+/* Icon-only button variant (small square) */
+.btn-icon-only {
+    padding: 6px 10px;
+    width: auto;
+}
+
+/* ── Admin Console ── */
+#admin-console-section {
+    display: none;
+    padding: 24px;
+    height: 100%;
+    flex-direction: column;
+}
+
+.admin-console-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    max-width: none;
+}
+
+.admin-console-title-icon {
+    margin-right: 8px;
+}
+
+/* Segmented-pill tab bar */
+.admin-tabs {
+    display: inline-flex;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 24px;
+}
+
+.admin-tab-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px 16px;
+    transition: all 0.2s;
+}
+
+.admin-tab-btn.active {
+    background: var(--bg-surface);
+    font-weight: 600;
+    color: var(--text-main);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Admin view panels */
+.admin-view {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+/* Scrollable table wrapper */
+.admin-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+}
+
+.admin-table {
+    width: 100%;
+    text-align: left;
+    border-collapse: collapse;
+    min-width: 650px;
+}
+
+.admin-table-head {
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-th {
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.admin-th-right {
+    text-align: right;
+}
+
+/* ── Profile modal tabs ── */
+.profile-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.profile-tab-btn {
+    background: none;
+    border: none;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.profile-tab-btn.active {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* ── Buckets table ── */
+.buckets-list {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 150px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.buckets-table {
+    width: 100%;
+    text-align: left;
+    font-size: 0.9rem;
+    border-collapse: collapse;
+}
+
+.buckets-table-head {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+}
+
+.buckets-table-head-row {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.buckets-th {
+    padding: 8px 4px;
+}
+
+.buckets-th-right {
+    text-align: right;
+}
+
+/* ── Bucket create panel ── */
+.bucket-create-panel {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 8px;
+    background: #f9fafb;
+    border: 1px solid var(--border-color);
+}
+
+.bucket-create-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.bucket-create-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.form-group-compact {
+    margin-bottom: 0;
+}
+
+.label-small {
+    font-size: 0.75rem;
+}
+
+/* ── Invite result block ── */
+.invite-result {
+    padding: 12px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    margin-top: 12px;
+}
+
+.invite-result-label {
+    font-size: 0.85rem;
+    color: #4338ca;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.invite-link-row {
+    display: flex;
+    gap: 8px;
+}
+
+.invite-link-input {
+    flex-grow: 1;
+    padding: 6px;
+    border: 1px solid #c7d2fe;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    background: #fff;
+    color: var(--text-main);
+}
+
+/* Responsive: stack bucket-create form on narrow screens */
+@media (max-width: 480px) {
+    .bucket-create-form {
+        grid-template-columns: 1fr;
+    }
+    .bucket-create-form .btn-icon-only {
+        width: 100%;
+    }
+}
+

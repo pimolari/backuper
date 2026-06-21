@@ -1,7 +1,7 @@
 """Invite service — handles generation, validation, and listing of invites."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from backend.clients.datastore_client import DatastoreClient
@@ -13,7 +13,7 @@ _db = DatastoreClient()
 
 def _build_invite_response(data: dict) -> InviteResponse:
     # Handle missing created_at for safety
-    created_at = data.get("created_at") or datetime.utcnow().isoformat()
+    created_at = data.get("created_at") or datetime.now(tz=timezone.utc).isoformat()
     return InviteResponse(
         id=data["id"],
         inviter_email=data["inviter_email"],
@@ -56,7 +56,7 @@ def create_invite(inviter_email: str, invited_email: str) -> InviteResponse:
         "inviter_email": inviter_email,
         "invited_email": invited_email,
         "status": "pending",
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(tz=timezone.utc).isoformat()
     }
     
     entity = _db.create_entity(key, invite_data)
@@ -79,7 +79,10 @@ def validate_invite(token: str) -> Dict[str, Any]:
     
     # Check expiration (2 days)
     created_at = datetime.fromisoformat(invite["created_at"])
-    if datetime.utcnow() > created_at + timedelta(days=2):
+    # Make naive datetimes timezone-aware for comparison
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    if datetime.now(tz=timezone.utc) > created_at + timedelta(days=2):
         # Update status to outdated
         invite["status"] = "outdated"
         key = _db.key("Invite", token)
@@ -116,31 +119,31 @@ def cancel_invite(token: str) -> InviteResponse:
 def list_invites() -> List[InviteResponse]:
     query = _db.query(kind="Invite")
     results = list(query.fetch())
-    
+
+    now = datetime.now(tz=timezone.utc)
     invites = []
     for res in results:
         data = dict(res)
         data["id"] = res.key.name or str(res.key.id)
-        
-        # Check if pending invites are outdated
+
+        # Check if pending invites are outdated; reuse the already-fetched entity
+        # to avoid a second Datastore read per invite.
         if data["status"] == "pending":
-            created_at = data.get("created_at")
-            if created_at:
+            created_at_str = data.get("created_at")
+            if created_at_str:
                 try:
-                    dt = datetime.fromisoformat(created_at)
-                    if datetime.utcnow() > dt + timedelta(days=2):
+                    dt = datetime.fromisoformat(created_at_str)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if now > dt + timedelta(days=2):
                         data["status"] = "outdated"
-                        # Background update
-                        key = _db.key("Invite", data["id"])
-                        entity = _db.get(key)
-                        if entity:
-                            entity["status"] = "outdated"
-                            _db.put(entity)
+                        res["status"] = "outdated"  # update in-place on fetched entity
+                        _db.put(res)
                 except ValueError:
                     pass
-        
+
         invites.append(_build_invite_response(data))
-    
+
     # Sort by created_at descending
     invites.sort(key=lambda x: x.created_at, reverse=True)
     return invites

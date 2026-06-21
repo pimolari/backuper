@@ -14,7 +14,7 @@ import io
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from backend import config
@@ -70,7 +70,7 @@ class _MockBlob:
     def updated(self) -> datetime:
         if os.path.exists(self._file_path):
             return datetime.fromtimestamp(os.path.getmtime(self._file_path))
-        return datetime.utcnow()
+        return datetime.now(tz=timezone.utc)
 
 
 class _MockBucket:
@@ -113,7 +113,7 @@ class _MockStorageClient:
                 {
                     "name": bucket_name,
                     "location": location or config.DEFAULT_REGION,
-                    "created": datetime.utcnow().isoformat(),
+                    "created": datetime.now(tz=timezone.utc).isoformat(),
                 },
                 fh,
             )

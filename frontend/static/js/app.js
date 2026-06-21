@@ -1214,23 +1214,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const adminViews = document.querySelectorAll('.admin-view');
     adminTabs.forEach(tab => {
         tab.addEventListener('click', async () => {
-            adminTabs.forEach(t => {
-                t.classList.remove('active');
-                t.style.background = 'transparent';
-                t.style.fontWeight = '500';
-                t.style.color = 'var(--text-muted)';
-                t.style.boxShadow = 'none';
-            });
+            // Toggle active class — CSS handles all visual state
+            adminTabs.forEach(t => t.classList.remove('active'));
             adminViews.forEach(v => v.style.display = 'none');
-            
+
             tab.classList.add('active');
-            tab.style.background = 'var(--bg-surface)';
-            tab.style.fontWeight = '600';
-            tab.style.color = 'var(--text-main)';
-            tab.style.boxShadow = 'var(--shadow-sm)';
             const targetId = tab.dataset.target;
             document.getElementById(targetId).style.display = 'block';
-            
+
             if (targetId === "admin-users-view") await loadAdminUsers();
             else await loadAdminInvites();
         });

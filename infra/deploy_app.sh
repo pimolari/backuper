@@ -44,9 +44,10 @@ gcloud run deploy backend \
   --set-env-vars="USE_REAL_GCP=true" \
   --service-account="$BACKEND_SERVICE_ACCOUNT_EMAIL" \
   --timeout=1800 \
-  --memory=1Gi \
-  --cpu=2 \
-  --max-instances=10
+  --memory=512Mi \
+  --cpu=1 \
+  --min-instances=0 \
+  --max-instances=5
 
 # Get backend URL for proxying
 echo "Retrieving backend URL..."
@@ -74,9 +75,10 @@ gcloud run deploy frontend \
   --set-env-vars="BACKEND_URL=${BACKEND_URL}" \
   --service-account="$FRONTEND_SERVICE_ACCOUNT_EMAIL" \
   --timeout=1800 \
-  --memory=1Gi \
-  --cpu=2 \
-  --max-instances=10
+  --memory=512Mi \
+  --cpu=1 \
+  --min-instances=0 \
+  --max-instances=5
 
 FRONTEND_URL=$(gcloud run services describe frontend --platform=managed --region="$REGION" --project="$PROJECT_ID" --format="value(status.url)")
 

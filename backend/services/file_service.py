@@ -3,7 +3,7 @@ File service — business logic for browsing, uploading, downloading,
 deleting files, creating folders, and cache synchronisation.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import json
 import base64
@@ -75,7 +75,7 @@ def _cache_file(
         "name": filename,
         "path": clean_path,
         "size": size,
-        "upload_date": datetime.utcnow().isoformat(),
+        "upload_date": datetime.now(tz=timezone.utc).isoformat(),
         "storage_location": storage_location,
         "storage_class": storage_class,
         "is_dir": is_dir,
@@ -220,37 +220,27 @@ def _delete_cached_files_under_path(
 ) -> None:
     """
     Delete cache entries under a specific path prefix, or clear the entire bucket cache if path_prefix is empty.
-    
-    Args:
-        user_id (str): The user's ID.
-        bucket_name (str): The name of the storage bucket.
-        path_prefix (str): The directory prefix to clear. If empty, clears everything.
     """
     query = _db.query(kind="FileCache")
     query.add_filter("user_id", "=", user_id)
     query.add_filter("storage_location", "=", bucket_name)
-    
+
     clean = path_prefix.strip("/")
-    keys_to_delete = []
-    snap_keys_to_delete = []
     
+    file_keys = []
+    snap_keys = []
     for entity in query.fetch():
         if not clean:
-            keys_to_delete.append(entity.key)
-            snap_keys_to_delete.append(_db.key("FileSnapshot", entity.key.name))
+            file_keys.append(entity.key)
+            snap_keys.append(_db.key("FileSnapshot", entity.key.name))
         else:
             path = entity.get("path", "")
             if path == clean or path.startswith(clean + "/"):
-                keys_to_delete.append(entity.key)
-                snap_keys_to_delete.append(_db.key("FileSnapshot", entity.key.name))
-                
-    if keys_to_delete:
-        # Datastore allows batch delete, but we will iterate to be safe
-        for k in keys_to_delete:
-            _db.delete(k)
-    if snap_keys_to_delete:
-        for sk in snap_keys_to_delete:
-            _db.delete(sk)
+                file_keys.append(entity.key)
+                snap_keys.append(_db.key("FileSnapshot", entity.key.name))
+
+    _db.delete_multi(file_keys)
+    _db.delete_multi(snap_keys)
 
 
 
@@ -488,7 +478,7 @@ def initiate_chunked_upload(
         "filename": filename,
         "file_size": file_size,
         "content_type": content_type or "application/octet-stream",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
 
@@ -522,6 +512,10 @@ def upload_chunk(
     """
     import os
     import requests
+
+    MAX_CHUNK_BYTES = 32 * 1024 * 1024  # 32 MB hard cap
+    if len(chunk_bytes) > MAX_CHUNK_BYTES:
+        raise ValidationError(f"Chunk size {len(chunk_bytes)} exceeds the 32 MB maximum.")
     
     key = _db.key("UploadSession", upload_id)
     session = _db.get(key)
@@ -685,37 +679,46 @@ def delete_folder(
 def queue_bulk_delete(current_user: Dict[str, Any], items: list[str]) -> dict:
     """Queue a list of file/folder IDs for deletion via Pub/Sub chunks."""
     from backend.clients.pubsub_client import PubSubClient
-    
+
     if not items:
         return {"message": "No items to delete"}
-        
+
     pubsub = PubSubClient()
     chunk_size = 10
     chunks = [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
-    
+
     for i, chunk in enumerate(chunks):
         payload = {
-            "current_user": current_user,
+            # Pass only the user_id — the worker re-fetches the user to avoid
+            # serialising sensitive fields (e.g. hashed_password) into Pub/Sub.
+            "user_id": current_user["id"],
             "items": chunk,
             "chunk_index": i,
             "total_chunks": len(chunks)
         }
         pubsub.publish_message("bulk-delete", payload)
-        
+
     biz_logger.info(f"Queued {len(items)} items for deletion across {len(chunks)} chunks.")
     return {"message": f"Queued {len(items)} items for deletion", "chunks": len(chunks)}
 
 
 def process_bulk_delete_message(payload: dict) -> None:
     """Worker function to process a bulk delete chunk from Pub/Sub."""
-    current_user = payload.get("current_user")
+    from backend.services.user_service import get_user_by_id
+
+    user_id = payload.get("user_id")
     items = payload.get("items", [])
-    
-    if not current_user or not items:
-        tech_logger.warning("Invalid bulk delete payload: missing user or items.")
+
+    if not user_id or not items:
+        tech_logger.warning("Invalid bulk delete payload: missing user_id or items.")
         return
-        
-    tech_logger.info(f"Processing bulk delete chunk: {len(items)} items")
+
+    current_user = get_user_by_id(user_id)
+    if not current_user:
+        tech_logger.error("Bulk delete: user %s not found.", user_id)
+        return
+
+    tech_logger.info(f"Processing bulk delete chunk: {len(items)} items for user {user_id}")
     for item_id in items:
         try:
             if item_id.startswith("folder:"):
@@ -740,20 +743,21 @@ def _delete_entire_user(user_id: str) -> None:
     user = get_user_by_id(user_id)
     if not user:
         return
-    
+
     # 1. Delete all GCS buckets for the user
     for bucket_info in user.get("buckets", []):
         bucket_name = bucket_info["name"]
         _gcs.delete_folder(bucket_name, "")
-    
-    # 2. Delete all Datastore caches for the user
-    # We query all files for this user across all buckets
+
+    # 2. Batch-delete all Datastore caches for the user
     query = _db.query(kind="FileCache")
     query.add_filter("user_id", "=", user_id)
-    for entity in query.fetch():
-        _db.delete(entity.key)
-        _db.delete(_db.key("FileSnapshot", entity.key.name))
-        
+    entities = list(query.fetch())
+    file_keys = [e.key for e in entities]
+    snap_keys = [_db.key("FileSnapshot", e.key.name) for e in entities]
+    _db.delete_multi(file_keys)
+    _db.delete_multi(snap_keys)
+
     # 3. Delete the user profile
     _db.delete(_db.key("User", user_id))
     tech_logger.info(f"User {user_id} and all associated data permanently deleted.")

@@ -1,12 +1,29 @@
-fastapi
-uvicorn
-google-cloud-storage
-google-cloud-datastore
-pyjwt
-passlib[bcrypt]
-python-multipart
-pydantic
-bcrypt
-email-validator
-google-cloud-pubsub
-Pillow
+# Direct dependencies — pinned to known-good versions from the dev environment.
+# To update: run `venv/bin/python3 -m pip install -U <pkg>` then re-freeze.
+
+# Web framework
+fastapi==0.136.3
+uvicorn==0.48.0
+starlette==1.2.0
+python-multipart==0.0.29
+
+# Data validation
+pydantic==2.13.4
+email-validator==2.3.0
+annotated-types==0.7.0
+
+# Auth
+PyJWT==2.13.0
+passlib==1.7.4
+bcrypt==5.0.0
+
+# GCP SDKs
+google-cloud-storage==3.10.1
+google-cloud-datastore==2.24.0
+google-cloud-pubsub==2.29.0
+
+# Image processing
+Pillow==11.2.1
+
+# HTTP (used in chunked upload chunk forwarding to GCS resumable URL)
+requests==2.34.2

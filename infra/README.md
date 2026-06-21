@@ -8,7 +8,8 @@ La infraestructura está estructurada de forma modular en dos fases o partes par
 
 ```text
 infra/
-├── variables.tfvars.json  # Archivo de variables JSON del entorno
+├── variables.tfvars.json          # Archivo de variables JSON del entorno (no sensibles)
+├── variables.private.tfvars.json  # (NEW) Archivo privado con emails sensibles (ignorado por git)
 ├── common.sh              # (NEW) Script compartido que carga las configuraciones para evitar duplicados
 ├── deploy_infra.sh        # Automatiza la ejecución de Terraform (Partes 1 y 2)
 ├── deploy_app.sh          # Automatiza la compilación con Cloud Build y despliegue a Cloud Run (Frontend y Backend)
@@ -43,7 +44,7 @@ Antes de ejecutar los scripts, asegúrese de contar con las siguientes herramien
 
 ## Configuración de Parámetros
 
-Edite el archivo [variables.tfvars.json](variables.tfvars.json) en la raíz de esta carpeta para definir los parámetros específicos de su organización y proyecto de GCP:
+Edite el archivo [variables.tfvars.json](variables.tfvars.json) en la raíz de esta carpeta para definir los parámetros específicos de su organización y proyecto de GCP (información no sensible):
 
 ```json
 {
@@ -52,8 +53,16 @@ Edite el archivo [variables.tfvars.json](variables.tfvars.json) en la raíz de e
   "org_id": "Id numérico de la organización (dejar en blanco "" si no tiene organización)",
   "billing_account": "XXXXXX-XXXXXX-XXXXXX (Cuenta de facturación de GCP)",
   "region": "us-central1 (Región por defecto)",
-  "admin_group_email": "grupo-administradores@dominio.com",
   "state_bucket_name": "nombre-unico-para-el-bucket-de-estado-tf"
+}
+```
+
+Luego, cree un archivo **`variables.private.tfvars.json`** en el mismo directorio para alojar los datos sensibles, como las direcciones de correo electrónico. Este archivo está explícitamente ignorado en `.gitignore` para prevenir filtraciones de datos:
+
+```json
+{
+  "admin_group_email": "grupo-administradores@dominio.com",
+  "owner_email": "usuario-propietario@dominio.com"
 }
 ```
 
@@ -68,8 +77,11 @@ El despliegue está automatizado para ejecutarse en dos secuencias: aprovisionam
 Ejecute el script `deploy_infra.sh`. Este script realizará lo siguiente de forma automática:
 1. Leer los parámetros de `variables.tfvars.json`.
 2. Inicializar y aplicar localmente el módulo `part1/` para crear el proyecto GCP, habilitar los servicios/APIs requeridos y crear el bucket de almacenamiento de estado GCS.
-3. Inicializar el módulo `part2/` enlazando dinámicamente su backend remoto de Terraform al bucket GCS de estado creado en el paso anterior.
-4. Aplicar el módulo `part2/` para generar las políticas IAM de administración para el grupo Google, activar la base de datos Datastore y crear la Cuenta de Servicio de Cloud Run con permisos de escritura de caché y almacenamiento de buckets.
+3. Inicializar el módulo `cloud/` enlazando dinámicamente su backend remoto de Terraform al bucket GCS de estado creado en el paso anterior.
+4. Aplicar el módulo `cloud/` para generar las políticas IAM, la base de datos Datastore y las Cuentas de Servicio.
+
+**Nota importante sobre el estado local (`terraform.tfstate`)**:
+El despliegue de la infraestructura local (la creación inicial del proyecto y del bucket de estado) genera un archivo de estado de Terraform de forma local. Este archivo no se sube automáticamente a control de versiones (está bloqueado en `.gitignore` por seguridad). Debe ser almacenado y respaldado de forma manual directamente dentro del bucket de estado de Terraform (`state_bucket_name`) creado durante la aplicación en la nube.
 
 ```bash
 chmod +x deploy_infra.sh

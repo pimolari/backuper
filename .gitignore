@@ -21,6 +21,9 @@ out/
 .vscode/
 .terraform/
 .terraform*
+*.tfstate
+*.tfstate.backup
+variables.private.tfvars.json
 
 # -------------------------------------------------------------------
 # Mock Files

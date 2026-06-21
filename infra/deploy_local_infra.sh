@@ -14,7 +14,7 @@ echo "==============================================="
 source ./common.sh
 STATE_BUCKET=$(python3 -c "import json; print(json.load(open('variables.tfvars.json'))['state_bucket_name'])")
 REGION=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('region', 'us-central1'))")
-ADMIN_GROUP_EMAIL=$(python3 -c "import json; print(json.load(open('variables.tfvars.json')).get('admin_group_email', ''))")
+ADMIN_GROUP_EMAIL=$(python3 -c "import json, os; print(json.load(open('variables.private.tfvars.json')).get('admin_group_email', '')) if os.path.exists('variables.private.tfvars.json') else print('')")
 
 echo "Project ID: $PROJECT_ID"
 echo "State Bucket: $STATE_BUCKET"
@@ -25,8 +25,8 @@ echo "Admin Group Email: $ADMIN_GROUP_EMAIL"
 echo -e "\n--- Step 1: Deploying Project Bootstrap (Part 1) ---"
 cd local
 terraform init
-terraform plan -var-file=../variables.tfvars.json
-terraform apply -var-file=../variables.tfvars.json -auto-approve
+terraform plan -var-file=../variables.tfvars.json -var-file=../variables.private.tfvars.json
+terraform apply -var-file=../variables.tfvars.json -var-file=../variables.private.tfvars.json -auto-approve
 cd ..
 
 

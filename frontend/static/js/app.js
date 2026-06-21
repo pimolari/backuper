@@ -230,6 +230,17 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("profile-name").value = userData.name;
             document.getElementById("profile-email").value = userData.email;
             
+            const isAdmin = userData.role === "admin";
+            const adminConsoleBtn = document.getElementById("admin-console-btn");
+            const tabInvitesBtn = document.getElementById("tab-invites-btn");
+            if (isAdmin) {
+                if (adminConsoleBtn) adminConsoleBtn.style.display = "flex";
+                if (tabInvitesBtn) tabInvitesBtn.style.display = "block";
+            } else {
+                if (adminConsoleBtn) adminConsoleBtn.style.display = "none";
+                if (tabInvitesBtn) tabInvitesBtn.style.display = "none";
+            }
+            
             renderBucketsTable();
         }
     }
@@ -1124,6 +1135,181 @@ document.addEventListener("DOMContentLoaded", () => {
     // 12. Profile & Folder Modals
     openProfileBtn.addEventListener("click", () => profileModal.classList.add("active"));
     profileModalClose.addEventListener("click", () => profileModal.classList.remove("active"));
+    
+    // Profile Tabs
+    const profileTabs = document.querySelectorAll('.profile-tab-btn');
+    const profileContents = document.querySelectorAll('.profile-tab-content');
+    profileTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            profileTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.fontWeight = '500';
+                t.style.color = 'var(--text-muted)';
+            });
+            profileContents.forEach(c => c.style.display = 'none');
+            
+            tab.classList.add('active');
+            tab.style.fontWeight = '600';
+            tab.style.color = 'var(--primary)';
+            document.getElementById(tab.dataset.target).style.display = 'block';
+        });
+    });
+
+    // Invite Logic
+    const inviteForm = document.getElementById('invite-form');
+    if (inviteForm) {
+        inviteForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('invite-email').value;
+            const result = await apiRequest("/api/profile/invites", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ invited_email: email })
+            });
+            if (result) {
+                const link = `${window.location.origin}/login?invite=${result.id}`;
+                document.getElementById('invite-link-input').value = link;
+                document.getElementById('invite-result').style.display = 'block';
+                inviteForm.reset();
+            }
+        });
+    }
+    
+    const copyInviteBtn = document.getElementById('copy-invite-btn');
+    if (copyInviteBtn) {
+        copyInviteBtn.addEventListener('click', () => {
+            const input = document.getElementById('invite-link-input');
+            input.select();
+            document.execCommand('copy');
+            showToast("Copied to clipboard!", "success");
+        });
+    }
+
+    // Admin Console Logic
+    const adminConsoleBtn = document.getElementById("admin-console-btn");
+    const adminCloseBtn = document.getElementById("admin-close-btn");
+    const workspaceSection = document.getElementById("workspace-section");
+    const adminConsoleSection = document.getElementById("admin-console-section");
+    
+    if (adminConsoleBtn) {
+        adminConsoleBtn.addEventListener('click', async () => {
+            if (window.innerWidth <= 768) {
+                const appContainer = document.getElementById("app-container");
+                if (appContainer) appContainer.classList.remove("sidebar-open");
+            }
+            workspaceSection.style.display = "none";
+            adminConsoleSection.style.display = "flex";
+            await loadAdminUsers();
+        });
+    }
+    
+    if (adminCloseBtn) {
+        adminCloseBtn.addEventListener('click', () => {
+            adminConsoleSection.style.display = "none";
+            workspaceSection.style.display = "flex";
+        });
+    }
+
+    const adminTabs = document.querySelectorAll('.admin-tab-btn');
+    const adminViews = document.querySelectorAll('.admin-view');
+    adminTabs.forEach(tab => {
+        tab.addEventListener('click', async () => {
+            adminTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.background = 'transparent';
+                t.style.fontWeight = '500';
+                t.style.color = 'var(--text-muted)';
+                t.style.boxShadow = 'none';
+            });
+            adminViews.forEach(v => v.style.display = 'none');
+            
+            tab.classList.add('active');
+            tab.style.background = 'var(--bg-surface)';
+            tab.style.fontWeight = '600';
+            tab.style.color = 'var(--text-main)';
+            tab.style.boxShadow = 'var(--shadow-sm)';
+            const targetId = tab.dataset.target;
+            document.getElementById(targetId).style.display = 'block';
+            
+            if (targetId === "admin-users-view") await loadAdminUsers();
+            else await loadAdminInvites();
+        });
+    });
+
+    async function loadAdminUsers() {
+        const users = await apiRequest("/api/profile/users");
+        if (!users) return;
+        const tbody = document.getElementById("admin-users-tbody");
+        tbody.innerHTML = "";
+        users.forEach(u => {
+            const tr = document.createElement("tr");
+            const bucketsStr = u.buckets.map(b => b.name).join(", ");
+            tr.innerHTML = `
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${u.email}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${new Date(u.enrolment_date).toLocaleDateString()}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${u.last_login_date ? new Date(u.last_login_date).toLocaleDateString() : 'Never'}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);"><span title="${bucketsStr}">${u.buckets.length}</span></td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); text-align: right; white-space: nowrap;">
+                    <button class="btn-secondary deactivate-btn" data-id="${u.id}" ${!u.is_active ? 'disabled' : ''} style="font-size: 0.8rem; padding: 4px 8px; margin-right: 4px;">${u.is_active ? 'Deactivate' : 'Inactive'}</button>
+                    <button class="btn-secondary delete-user-btn" data-id="${u.id}" style="font-size: 0.8rem; padding: 4px 8px; color: var(--error);">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        document.querySelectorAll('.deactivate-btn').forEach(b => b.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            if (confirm("Deactivate this user?")) {
+                const res = await apiRequest(`/api/profile/users/${id}/deactivate`, { method: "POST" });
+                if (res) {
+                    showToast("User deactivated.", "success");
+                    loadAdminUsers();
+                }
+            }
+        }));
+        
+        document.querySelectorAll('.delete-user-btn').forEach(b => b.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            if (confirm("Permanently delete this user and ALL their data? This cannot be undone.")) {
+                const res = await apiRequest(`/api/profile/users/${id}`, { method: "DELETE" });
+                if (res) {
+                    showToast("User queued for permanent deletion.", "info");
+                    loadAdminUsers();
+                }
+            }
+        }));
+    }
+
+    async function loadAdminInvites() {
+        const invites = await apiRequest("/api/profile/invites");
+        if (!invites) return;
+        const tbody = document.getElementById("admin-invites-tbody");
+        tbody.innerHTML = "";
+        invites.forEach(inv => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${inv.invited_email}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${inv.inviter_email}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">${new Date(inv.created_at).toLocaleDateString()}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500;">${inv.status}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); text-align: right; white-space: nowrap;">
+                    ${inv.status === 'pending' ? `<button class="btn-secondary cancel-invite-btn" data-id="${inv.id}" style="font-size: 0.8rem; padding: 4px 8px; color: var(--error);">Cancel</button>` : ''}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        document.querySelectorAll('.cancel-invite-btn').forEach(b => b.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            if (confirm("Cancel this invitation?")) {
+                const res = await apiRequest(`/api/profile/invites/${id}/cancel`, { method: "POST" });
+                if (res) {
+                    showToast("Invite cancelled.", "info");
+                    loadAdminInvites();
+                }
+            }
+        }));
+    }
 
     profileForm.addEventListener("submit", async (e) => {
         e.preventDefault();

@@ -725,11 +725,38 @@ def process_bulk_delete_message(payload: dict) -> None:
             elif item_id.startswith("file:"):
                 file_id = item_id.replace("file:", "", 1)
                 delete_file(current_user, file_id)
+            elif item_id.startswith("user:"):
+                user_id = item_id.replace("user:", "", 1)
+                _delete_entire_user(user_id)
             else:
                 # Fallback assuming it's a file ID
                 delete_file(current_user, item_id)
         except Exception as e:
             tech_logger.error(f"Failed to delete {item_id}: {str(e)}")
+
+def _delete_entire_user(user_id: str) -> None:
+    """Permanently delete a user, all their buckets, file caches, and the profile entity."""
+    from backend.services.user_service import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        return
+    
+    # 1. Delete all GCS buckets for the user
+    for bucket_info in user.get("buckets", []):
+        bucket_name = bucket_info["name"]
+        _gcs.delete_folder(bucket_name, "")
+    
+    # 2. Delete all Datastore caches for the user
+    # We query all files for this user across all buckets
+    query = _db.query(kind="FileCache")
+    query.add_filter("user_id", "=", user_id)
+    for entity in query.fetch():
+        _db.delete(entity.key)
+        _db.delete(_db.key("FileSnapshot", entity.key.name))
+        
+    # 3. Delete the user profile
+    _db.delete(_db.key("User", user_id))
+    tech_logger.info(f"User {user_id} and all associated data permanently deleted.")
 
 
 def create_folder(

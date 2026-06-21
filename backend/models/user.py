@@ -1,7 +1,7 @@
 """User-related Pydantic models."""
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import List
+from typing import List, Optional
 from backend.models.bucket import BucketInfo
 
 
@@ -11,6 +11,7 @@ class UserRegister(BaseModel):
     password: str = Field(..., min_length=6)
     default_region: str = "europe-west1"
     default_storage_class: str = "STANDARD"
+    invite_token: str
 
 
 class UserLogin(BaseModel):
@@ -29,3 +30,8 @@ class UserResponse(BaseModel):
     email: str
     buckets: List[BucketInfo]
     active_bucket: str
+    role: str
+    enrolment_date: str
+    last_login_date: Optional[str] = None
+    is_active: bool
+

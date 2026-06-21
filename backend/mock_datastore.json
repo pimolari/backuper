@@ -10,7 +10,10 @@
         "region": "europe-west1",
         "storage_class": "NEARLINE"
       }
-    ]
+    ],
+    "role": "admin",
+    "enrolment_date": "2026-06-15T18:34:56.971112",
+    "is_active": true
   },
   "User:bob@example.com": {
     "name": "Bob Security Auditor",
@@ -23,7 +26,10 @@
         "region": "us-central1",
         "storage_class": "STANDARD"
       }
-    ]
+    ],
+    "role": "admin",
+    "enrolment_date": "2026-06-15T18:34:56.971485",
+    "is_active": true
   },
   "FileCache:alice@example.com:backuper-c160f8cc-europe-west1:DedupeFolder": {
     "user_id": "alice@example.com",

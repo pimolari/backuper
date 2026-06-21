@@ -60,16 +60,22 @@
                 <!-- Javascript will populate folder structure here -->
             </div>
 
-            <button id="logout-btn" class="btn-secondary" style="width: 100%; margin-top: auto;">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Log Out</span>
-            </button>
+            <div style="margin-top: auto;">
+                <button id="admin-console-btn" class="btn-secondary" style="width: 100%; margin-bottom: 8px; display: none;">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                    <span>Admin Console</span>
+                </button>
+                <button id="logout-btn" class="btn-secondary" style="width: 100%;">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
         </aside>
 
         <!-- Main Content Area -->
         <main class="main-content">
             <!-- Workspace Section -->
-            <section class="workspace">
+            <section class="workspace" id="workspace-section">
                 <!-- Top Control Bar (Breadcrumbs & Actions) -->
                 <div class="workspace-controls">
                     <!-- Path Breadcrumbs -->
@@ -148,6 +154,59 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Admin Console Section (Hidden initially) -->
+            <section class="admin-console" id="admin-console-section" style="display: none; padding: 24px; height: 100%; flex-direction: column;">
+                <div class="workspace-controls">
+                    <div class="breadcrumbs">
+                        <span class="breadcrumb-item active" style="font-size: 1.2rem; font-weight: 600; max-width: none;"><i class="fa-solid fa-screwdriver-wrench" style="margin-right: 8px;"></i>Administration Console</span>
+                    </div>
+                    <div class="view-controls">
+                        <button id="admin-close-btn" class="btn-secondary" title="Close Admin Console">
+                            <i class="fa-solid fa-xmark"></i> Close
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-tabs" style="display: inline-flex; background: #f1f5f9; border-radius: 8px; padding: 4px; gap: 4px; margin-bottom: 24px;">
+                    <button class="admin-tab-btn active" data-target="admin-users-view" style="background: var(--bg-surface); border: none; border-radius: 6px; font-size: 0.95rem; font-weight: 600; color: var(--text-main); cursor: pointer; padding: 6px 16px; box-shadow: var(--shadow-sm); transition: all 0.2s;">Users</button>
+                    <button class="admin-tab-btn" data-target="admin-invites-view" style="background: transparent; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: 500; color: var(--text-muted); cursor: pointer; padding: 6px 16px; transition: all 0.2s;">Invites</button>
+                </div>
+
+                <div id="admin-users-view" class="admin-view" style="flex-grow: 1; overflow-y: auto;">
+                    <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface);">
+                        <table style="width: 100%; text-align: left; border-collapse: collapse; min-width: 650px;">
+                            <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                                <tr>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">User</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Enrolment</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Last Login</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Buckets</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="admin-invites-view" class="admin-view" style="display: none; flex-grow: 1; overflow-y: auto;">
+                    <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface);">
+                        <table style="width: 100%; text-align: left; border-collapse: collapse; min-width: 650px;">
+                            <thead style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+                                <tr>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Invited Email</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Inviter</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Date</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted);">Status</th>
+                                    <th style="padding: 12px 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-invites-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -168,81 +227,120 @@
 
     <!-- User Profile Modal -->
     <div class="modal-overlay" id="profile-modal">
-        <div class="modal-card">
+        <div class="modal-card" style="max-width: 500px;">
             <i class="fa-solid fa-xmark modal-close" id="profile-modal-close"></i>
             <h2 class="modal-title">
                 <i class="fa-solid fa-circle-user"></i>
-                <span>User Profile &amp; Workspace</span>
+                <span>Workspace Settings</span>
             </h2>
 
-            <form id="profile-form">
-                <div class="form-group">
-                    <label for="profile-name">Full Name</label>
-                    <div class="input-container">
-                        <input type="text" id="profile-name" class="form-input" required>
-                        <i class="fa-solid fa-user"></i>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="profile-email">Email Address</label>
-                    <div class="input-container">
-                        <input type="email" id="profile-email" class="form-input" required>
-                        <i class="fa-solid fa-envelope"></i>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-primary" style="margin-bottom: 24px;">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    <span>Save Changes</span>
-                </button>
-            </form>
-
-            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0;">
-
-            <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 12px;">Storage Buckets</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-                Manage your available buckets.
-            </p>
-
-            <div class="buckets-list" style="overflow-x: auto; overflow-y: auto; max-height: 150px; border: 1px solid var(--border-color); border-radius: 6px;">
-                <table class="buckets-table" style="width: 100%; text-align: left; font-size: 0.9rem; border-collapse: collapse;">
-                    <thead style="position: sticky; top: 0; background: var(--bg-surface);">
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <th style="padding: 8px 4px;">Name</th>
-                            <th style="padding: 8px 4px;">Region</th>
-                            <th style="padding: 8px 4px; text-align: right;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="buckets-table-body">
-                        <!-- Populated by JS -->
-                    </tbody>
-                </table>
+            <div class="profile-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <button class="profile-tab-btn active" data-target="tab-profile" style="background: none; border: none; font-weight: 600; color: var(--primary); cursor: pointer; padding: 4px 8px;">Profile</button>
+                <button class="profile-tab-btn" data-target="tab-buckets" style="background: none; border: none; font-weight: 500; color: var(--text-muted); cursor: pointer; padding: 4px 8px;">Buckets</button>
+                <button class="profile-tab-btn" data-target="tab-invites" style="background: none; border: none; font-weight: 500; color: var(--text-muted); cursor: pointer; padding: 4px 8px;" id="tab-invites-btn">Invite</button>
             </div>
 
-            <!-- Create New Bucket Area -->
-            <div style="margin-top: 24px; padding: 16px; border-radius: 8px; background: #f9fafb; border: 1px solid var(--border-color);">
-                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Add Bucket</h4>
-                <form id="create-bucket-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="new-bucket-region" style="font-size: 0.75rem;">Region</label>
-                        <select id="new-bucket-region" class="form-select">
-                            <option value="europe-west1">europe-west1</option>
-                            <option value="us-central1">us-central1</option>
-                        </select>
+            <!-- Profile Tab -->
+            <div id="tab-profile" class="profile-tab-content">
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="profile-name">Full Name</label>
+                        <div class="input-container">
+                            <input type="text" id="profile-name" class="form-input" required>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="new-bucket-class" style="font-size: 0.75rem;">Class</label>
-                        <select id="new-bucket-class" class="form-select">
-                            <option value="STANDARD">STANDARD</option>
-                            <option value="NEARLINE">NEARLINE</option>
-                        </select>
+
+                    <div class="form-group">
+                        <label for="profile-email">Email Address</label>
+                        <div class="input-container">
+                            <input type="email" id="profile-email" class="form-input" required>
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
                     </div>
-                    <button type="submit" class="btn-primary" style="padding: 10px 16px; width: auto;">
-                        <i class="fa-solid fa-plus"></i>
+
+                    <button type="submit" class="btn-primary" style="margin-bottom: 16px;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Save Changes</span>
                     </button>
                 </form>
             </div>
+
+            <!-- Buckets Tab -->
+            <div id="tab-buckets" class="profile-tab-content" style="display: none;">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Manage your available buckets.
+                </p>
+
+                <div class="buckets-list" style="overflow-x: auto; overflow-y: auto; max-height: 150px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <table class="buckets-table" style="width: 100%; text-align: left; font-size: 0.9rem; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-surface);">
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 8px 4px;">Name</th>
+                                <th style="padding: 8px 4px;">Region</th>
+                                <th style="padding: 8px 4px; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buckets-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Create New Bucket Area -->
+                <div style="margin-top: 16px; padding: 16px; border-radius: 8px; background: #f9fafb; border: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Add Bucket</h4>
+                    <form id="create-bucket-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="new-bucket-region" style="font-size: 0.75rem;">Region</label>
+                            <select id="new-bucket-region" class="form-select">
+                                <option value="europe-west1">europe-west1</option>
+                                <option value="us-central1">us-central1</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="new-bucket-class" style="font-size: 0.75rem;">Class</label>
+                            <select id="new-bucket-class" class="form-select">
+                                <option value="STANDARD">STANDARD</option>
+                                <option value="NEARLINE">NEARLINE</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-primary" style="padding: 10px 16px; width: auto;">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Invites Tab -->
+            <div id="tab-invites" class="profile-tab-content" style="display: none;">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                    Send an invitation link to a new user.
+                </p>
+                <form id="invite-form">
+                    <div class="form-group">
+                        <label for="invite-email">User Email Address</label>
+                        <div class="input-container">
+                            <input type="email" id="invite-email" class="form-input" placeholder="newuser@example.com" required>
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="margin-bottom: 16px;">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Generate Invite Link</span>
+                    </button>
+                </form>
+                <div id="invite-result" style="display: none; padding: 12px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; margin-top: 12px;">
+                    <p style="font-size: 0.85rem; color: #4338ca; margin-bottom: 8px; font-weight: 500;">Invitation link generated!</p>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="invite-link-input" readonly style="flex-grow: 1; padding: 6px; border: 1px solid #c7d2fe; border-radius: 4px; font-size: 0.8rem; background: #fff; color: var(--text-main);">
+                        <button id="copy-invite-btn" class="btn-secondary" style="padding: 6px 10px;" title="Copy to clipboard">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

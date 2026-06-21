@@ -31,4 +31,8 @@ def build_user_response(user: Dict[str, Any]) -> UserResponse:
         email=user["email"],
         buckets=buckets_info,
         active_bucket=active_b,
+        role=user.get("role", "user"),
+        enrolment_date=user.get("enrolment_date", ""),
+        last_login_date=user.get("last_login_date"),
+        is_active=user.get("is_active", True),
     )

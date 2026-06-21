@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from backend.models.user import UserRegister, UserLogin, UserResponse
 from backend.services import user_service
+from backend.services.invite_service import validate_invite
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -28,7 +29,16 @@ def register(user_in: UserRegister):
         password=user_in.password,
         region=user_in.default_region,
         storage_class=user_in.default_storage_class,
+        invite_token=user_in.invite_token,
     )
+
+@router.get("/validate-invite")
+def check_invite(token: str):
+    """
+    Check if an invite token is valid before showing the registration form.
+    """
+    invite = validate_invite(token)
+    return {"valid": True, "email": invite["invited_email"]}
 
 
 @router.post("/login")

@@ -171,6 +171,7 @@ class GCSClient:
             try:
                 bucket = storage.Bucket(self._client, name=bucket_name)
                 bucket.storage_class = storage_class
+                bucket.iam_configuration.public_access_prevention = "enforced"
                 self._client.create_bucket(bucket, location=region)
                 tech_logger.info(
                     "GCS: created bucket %s in %s (%s)",
@@ -181,6 +182,7 @@ class GCSClient:
                 bucket_name = f"backuper-{suffix}-{region}"
                 bucket = storage.Bucket(self._client, name=bucket_name)
                 bucket.storage_class = storage_class
+                bucket.iam_configuration.public_access_prevention = "enforced"
                 self._client.create_bucket(bucket, location=region)
                 tech_logger.warning(
                     "GCS: fallback bucket %s created (original error: %s)",

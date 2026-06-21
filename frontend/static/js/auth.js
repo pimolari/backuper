@@ -11,21 +11,34 @@ document.addEventListener("DOMContentLoaded", () => {
     const signupForm = document.getElementById("signup-form");
     const alertContainer = document.getElementById("alert-container");
 
-    // Toggle between login and registration forms
-    if (showSignup) {
-        showSignup.addEventListener("click", (e) => {
-            e.preventDefault();
-            loginCard.style.display = "none";
-            signupCard.style.display = "block";
-        });
-    }
+    let currentInviteToken = null;
 
-    if (showLogin) {
-        showLogin.addEventListener("click", (e) => {
-            e.preventDefault();
-            signupCard.style.display = "none";
-            loginCard.style.display = "block";
-        });
+    // Check URL for invite token
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('invite');
+    if (inviteToken) {
+        // Validate token
+        fetch(`${window.BACKEND_URL || ''}/api/auth/validate-invite?token=${inviteToken}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.valid) {
+                    currentInviteToken = inviteToken;
+                    document.getElementById("signup-email").value = data.email;
+                    document.getElementById("signup-email").readOnly = true;
+                    
+                    loginCard.style.display = "none";
+                    signupCard.style.display = "block";
+                    showToast("Invitation valid. Please complete your registration.", "success");
+                } else {
+                    showToast("Invalid or expired invitation link.", "error");
+                    loginCard.style.display = "block";
+                    signupCard.style.display = "none";
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast("Failed to validate invitation.", "error");
+            });
     }
 
     // Helper to display toast notifications
@@ -119,7 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         email,
                         password,
                         default_region,
-                        default_storage_class
+                        default_storage_class,
+                        invite_token: currentInviteToken
                     })
                 });
 

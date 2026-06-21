@@ -56,12 +56,22 @@ def register_user(
     password: str,
     region: str,
     storage_class: str,
+    invite_token: str,
 ) -> UserResponse:
     """
-    Full registration flow: validate → create GCS bucket → persist user.
+    Full registration flow: validate -> create GCS bucket -> persist user.
     """
+    from datetime import datetime
+    from backend.services.invite_service import validate_invite, mark_invite_accepted
+
     validate_region(region)
     validate_storage_class(storage_class)
+
+    # Validate the invite token
+    invite = validate_invite(invite_token)
+    if invite["invited_email"] != email.lower().strip():
+        from backend.common.exceptions import AppError
+        raise AppError("Email does not match the invitation.", status_code=400)
 
     if get_user_by_email(email):
         raise ConflictError("A user with this email already exists.")
@@ -89,10 +99,17 @@ def register_user(
                 "storage_class": storage_class,
             }
         ],
+        "role": "user",
+        "enrolment_date": datetime.utcnow().isoformat(),
+        "last_login_date": None,
+        "is_active": True,
     }
     entity = _db.create_entity(key, user_data)
     _db.put(entity)
     user_data["id"] = user_id
+
+    # Mark invite as accepted
+    mark_invite_accepted(invite_token)
 
     biz_logger.info("User registered: %s", email)
     return build_user_response(user_data)
@@ -111,10 +128,22 @@ def login_user(email: str, password: str) -> dict:
             status_code=401,
         )
 
+    if not user.get("is_active", True):
+        raise AppError("Your account has been deactivated.", status_code=403)
+
     access_token = create_access_token(
         data={"sub": user["email"]},
         expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+
+    # Update last login date
+    from datetime import datetime
+    user["last_login_date"] = datetime.utcnow().isoformat()
+    key = _db.key("User", user["id"])
+    entity = _db.get(key)
+    if entity:
+        entity["last_login_date"] = user["last_login_date"]
+        _db.put(entity)
 
     biz_logger.info("User logged in: %s", email)
     return {
@@ -153,3 +182,27 @@ def update_profile(
     updated_user = get_user_by_id(current_user["id"])
     biz_logger.info("Profile updated: %s", email)
     return build_user_response(updated_user)
+
+def list_users() -> list[UserResponse]:
+    """Return all users in the system."""
+    query = _db.query(kind="User")
+    results = list(query.fetch())
+    
+    users = []
+    for res in results:
+        data = dict(res)
+        data["id"] = res.key.name or str(res.key.id)
+        users.append(build_user_response(data))
+    return users
+
+def deactivate_user(user_id: str) -> None:
+    """Deactivates a user account."""
+    from backend.common.exceptions import AppError
+    key = _db.key("User", user_id)
+    entity = _db.get(key)
+    if not entity:
+        raise AppError("User not found.", status_code=404)
+        
+    entity["is_active"] = False
+    _db.put(entity)
+    biz_logger.info("User deactivated: %s", user_id)
